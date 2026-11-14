@@ -3,34 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MineBoss</title>
-    <meta name="theme-color" content="#05070c" />
+    <title>Coelhinho Craft Pintar</title>
+    <meta name="theme-color" content="#7ec8f0" />
     <meta
       name="description"
-      content="MineBoss: aventura de blocos no navegador. Construa, explore e lute com chefões opcionais."
+      content="Coelhinho Craft Pintar: pinte blocos, construa e brinque com um coelhinho fofinho. Sem monstros."
     />
-    <meta property="og:title" content="MineBoss" />
+    <meta property="og:title" content="Coelhinho Craft Pintar" />
     <meta
       property="og:description"
-      content="Aventura de blocos no navegador. Construa, explore e lute com chefões opcionais."
+      content="Pinte, construa e brinque com um coelhinho fofinho. Sem monstros."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://gamestudio42.github.io/mineboss/" />
+    <meta property="og:url" content="https://gamestudio42.github.io/coelhinho-craft-pintar/" />
     <meta
       property="og:image"
-      content="https://gamestudio42.github.io/mineboss/og.jpg"
+      content="https://gamestudio42.github.io/coelhinho-craft-pintar/og.jpg"
     />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="MineBoss" />
+    <meta name="twitter:title" content="Coelhinho Craft Pintar" />
     <meta
       name="twitter:description"
-      content="Aventura de blocos no navegador. Construa, explore e lute com chefões opcionais."
+      content="Pinte, construa e brinque com um coelhinho fofinho. Sem monstros."
     />
     <meta
       name="twitter:image"
-      content="https://gamestudio42.github.io/mineboss/og.jpg"
+      content="https://gamestudio42.github.io/coelhinho-craft-pintar/og.jpg"
     />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <link rel="stylesheet" href="/src/styles.css" />
@@ -39,7 +39,7 @@
       body {
         margin: 0;
         height: 100%;
-        background: #05070c;
+        background: #7ec8f0;
       }
       .boot-screen {
         position: fixed;
@@ -50,7 +50,7 @@
         align-items: center;
         justify-content: center;
         gap: 18px;
-        background: radial-gradient(circle at 50% 40%, #182837 0%, #05070c 70%);
+        background: radial-gradient(circle at 50% 40%, #fff6ea 0%, #7ec8f0 70%);
         color: #e8eef6;
         font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       }
@@ -73,11 +73,12 @@
         height: 28px;
       }
       .boot-word {
-        font-size: 40px;
+        font-size: 28px;
         font-weight: 800;
-        letter-spacing: 0.28em;
-        margin-right: -0.28em;
-        line-height: 1;
+        letter-spacing: 0.08em;
+        margin-right: -0.08em;
+        line-height: 1.1;
+        text-align: center;
         color: #ffb347;
       }
       .boot-step {
@@ -108,7 +109,7 @@
       aria-busy="true"
     >
       <img src="%BASE_URL%favicon.svg" alt="" />
-      <strong class="boot-word">MINEBOSS</strong>
+      <strong class="boot-word">COELHINHO</strong>
       <p class="boot-step" data-testid="boot-step">Carregando…</p>
       <div
         class="boot-progress"
@@ -132,16 +133,25 @@
         <div id="water-veil"></div>
         <div id="crosshair"></div>
 
-        <div id="boss-bar" class="hidden">
-          <div class="boss-bar-name">Guardião das Profundezas</div>
+        <div id="boss-bar" class="hidden" hidden>
+          <div class="boss-bar-name"></div>
           <div class="boss-bar-track">
             <div class="boss-bar-chip"></div>
             <div class="boss-bar-fill"></div>
           </div>
           <div class="boss-bar-status">
-            <div class="boss-bar-phase">Fase I</div>
-            <div class="boss-bar-vulnerable hidden">BATA AGORA!</div>
+            <div class="boss-bar-phase"></div>
+            <div class="boss-bar-vulnerable hidden"></div>
           </div>
+        </div>
+
+        <div id="paint-dock">
+          <div id="paint-toolbar">
+            <button id="mode-build" type="button" aria-pressed="true">Construir</button>
+            <button id="mode-paint" type="button" aria-pressed="false">Pintar</button>
+            <span id="carrot-count">Cenouras: 0</span>
+          </div>
+          <div id="paint-colors"></div>
         </div>
 
         <div id="compass" class="hidden">
@@ -185,9 +195,9 @@
           <span>Game Studio 42</span>
         </a>
         <div id="overlay-panel">
-          <h1 class="title">MINEBOSS</h1>
+          <h1 class="title">Coelhinho Craft Pintar</h1>
           <p id="overlay-text">
-            Construa seu mundo e enfrente chefões quando quiser.
+            Pinte, construa e brinque com o coelhinho fofinho.
           </p>
           <div id="overlay-actions">
             <button id="overlay-button" type="button">Jogar</button>
@@ -220,16 +230,13 @@
           </div>
           <ul id="controls">
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: andar</li>
-            <li><kbd>Space</kbd> pular / nadar para cima &middot; <kbd>Shift</kbd> correr / mergulhar / descer no voo</li>
-            <li><kbd>Botão esquerdo</kbd> remover / atacar</li>
-            <li><kbd>Botão direito</kbd> colocar / usar / enfrentar chefão</li>
-            <li><kbd>1</kbd>&hellip;<kbd>9</kbd> ou roda do mouse: escolher material</li>
-            <li>Segure <kbd>Q</kbd> para soltar um bloco</li>
-            <li><kbd>B</kbd> blocos e mochila · <kbd>C</kbd> criar · <kbd>H</kbd> ajuda</li>
-            <li><kbd>Z</kbd> desfazer · <kbd>Y</kbd> refazer</li>
-            <li><kbd>V</kbd> ver o personagem</li>
-            <li><kbd>F</kbd> voo na construção livre · <kbd>Shift</kbd> descer · segure <kbd>W</kbd> para acelerar</li>
-            <li><kbd>Esc</kbd> menu</li>
+            <li><kbd>Espaço</kbd> pular · <kbd>Shift</kbd> descer no voo</li>
+            <li><kbd>Botão esquerdo</kbd> tirar o bloco</li>
+            <li><kbd>Botão direito</kbd> colocar o bloco ou pintar</li>
+            <li>Botão <strong>Pintar</strong> e uma cor grande: pintar a parede</li>
+            <li>Cenoura: plantar na terra ou dar ao coelhinho</li>
+            <li><kbd>P</kbd> pintar · <kbd>B</kbd> blocos · <kbd>H</kbd> ajuda</li>
+            <li><kbd>V</kbd> ver o personagem · <kbd>F</kbd> voar · <kbd>Esc</kbd> menu</li>
           </ul>
         </div>
       </div>

@@ -45,6 +45,8 @@ export interface SavedOneBlock {
 export class OneBlock {
   broken = 0;
   gentle = true;
+  /** Peaceful worlds never spawn island mobs. Existing callers keep the old default. */
+  allowMobs = true;
   pace: OneBlockPace = 'classic';
   readonly goals = new Set<string>();
   private pendingMob = 0;
@@ -202,6 +204,7 @@ export class OneBlock {
   }
 
   private trySpawnMob(entities: EntityManager, phase: PhaseDef, player: Player): boolean {
+    if (!this.allowMobs) return false;
     if (phase.mobChance <= 0 || this.pendingMob > 0) return false;
     const pressure = mobPressure({
       gentle: this.gentle,

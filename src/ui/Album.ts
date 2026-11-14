@@ -73,7 +73,7 @@ export function albumSections(facts: AlbumFacts): AlbumSection[] {
   });
   const trophies: AlbumItem[] = BOSSES.map(({ boss, trophy, icon, name }) => {
     const done = facts.trophies.has(trophy);
-    return { icon, label: name, done, detail: done ? VICTORY_SIGN_TEXT[boss] : 'Quando quiser, pelo menu Chefões' };
+    return { icon, label: name, done, detail: done ? VICTORY_SIGN_TEXT[boss] : 'Figurinha do álbum' };
   });
   const sections: AlbumSection[] = [
     { title: 'Construções', items: builds },

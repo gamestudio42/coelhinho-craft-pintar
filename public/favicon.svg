@@ -1,5 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" role="img" aria-label="MineBoss">
-  <polygon points="44,16 70,31 44,46 18,31" fill="#ffe08a"/>
-  <polygon points="18,31 44,46 44,72 18,57" fill="#c47a28"/>
-  <polygon points="44,46 70,31 70,57 44,72" fill="#ffb347"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" role="img" aria-label="Coelhinho Craft Pintar">
+  <rect width="88" height="88" rx="20" fill="#fff6ea"/>
+  <ellipse cx="28" cy="22" rx="8" ry="18" fill="#fff" stroke="#243044" stroke-width="3"/>
+  <ellipse cx="60" cy="22" rx="8" ry="18" fill="#fff" stroke="#243044" stroke-width="3"/>
+  <ellipse cx="28" cy="24" rx="3" ry="10" fill="#ffb347"/>
+  <ellipse cx="60" cy="24" rx="3" ry="10" fill="#ffb347"/>
+  <circle cx="44" cy="50" r="24" fill="#fff" stroke="#243044" stroke-width="3"/>
+  <circle cx="35" cy="48" r="3" fill="#243044"/>
+  <circle cx="53" cy="48" r="3" fill="#243044"/>
+  <ellipse cx="44" cy="56" rx="4" ry="3" fill="#ffb347"/>
 </svg>

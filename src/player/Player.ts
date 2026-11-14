@@ -21,6 +21,8 @@ export class Player {
   yaw = 0;
   pitch = 0;
   creative = false;
+  /** Falls, lava and void cannot hurt a peaceful player. */
+  peaceful = false;
   edgeProtection = true;
   gentle = true;
   flying = false;

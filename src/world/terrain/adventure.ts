@@ -59,6 +59,7 @@ export class AdventureGenerator {
 
     this.plantTrees(chunk, baseX, baseZ);
     this.plantMushrooms(chunk, baseX, baseZ);
+    this.plantCarrots(chunk, baseX, baseZ);
     if (chunkTouchesArena(chunk.cx, chunk.cz)) this.carveArena(chunk, baseX, baseZ);
     if (chunkTouchesArena(chunk.cx, chunk.cz) || chunkTouchesEntrance(chunk.cx, chunk.cz)) {
       this.carveEntrance(chunk, baseX, baseZ);
@@ -150,6 +151,31 @@ export class AdventureGenerator {
         if (this.isCave(wx, ground, wz, ground)) continue;
 
         this.buildTree(chunk, baseX, baseZ, wx, wz, ground, roll);
+      }
+    }
+  }
+
+  /** Ripe carrots on the grass, denser near the spawn so they are easy to find. */
+  private plantCarrots(chunk: Chunk, baseX: number, baseZ: number): void {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        const wx = baseX + x;
+        const wz = baseZ + z;
+        if (distanceToArenaCenter(wx, wz) < ARENA.radius + 16) continue;
+        if (Math.hypot(wx - ENTRANCE.x, wz - ENTRANCE.z) < 16) continue;
+        if (Math.hypot(wx - RUIN.x, wz - RUIN.z) < 36) continue;
+        if (Math.hypot(wx - GROVE.x, wz - GROVE.z) < 28) continue;
+        if (Math.hypot(wx - CACHE.x, wz - CACHE.z) < 18) continue;
+
+        const ground = this.surfaceHeight(wx, wz);
+        if (ground < 1 || ground + 1 >= WORLD_HEIGHT) continue;
+        if (chunk.get(x, ground, z) !== Block.Grass) continue;
+        if (chunk.get(x, ground + 1, z) !== Block.Air) continue;
+
+        const nearSpawn = Math.hypot(wx, wz) < 42;
+        const chance = nearSpawn ? 0.055 : 0.012;
+        if (hash2(wx, wz, this.seed ^ 0xc0c0a) >= chance) continue;
+        chunk.set(x, ground + 1, z, Block.CarrotRipe);
       }
     }
   }

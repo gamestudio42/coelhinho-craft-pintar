@@ -25,7 +25,7 @@ export function hudChrome(facts: HudChromeFacts): HudChrome {
   const flight = !facts.creative || facts.fighting ? '' : facts.flying ? '✈ Shift desce · F pousa' : '✈ F: voar';
   const learning = facts.creative ? !facts.tutorialDone : facts.elapsed < PLAY_HELP_SECONDS;
   let playHelp = '';
-  if (facts.fighting) playHelp = 'Espaço: pular · Esquerdo: bater · Esc: pausar';
+  if (facts.fighting) playHelp = 'Espaço: pular · Esc: pausar';
   else if (learning) playHelp = facts.creative ? 'B: blocos · Z: desfazer · Esc: menu' : 'B: mochila · C: criar · H: ajuda · Esc: menu';
   return { phase, playHelp, flight };
 }

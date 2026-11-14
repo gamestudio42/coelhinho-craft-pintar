@@ -1,4 +1,4 @@
-# Contributing to MineBoss
+# Contributing to Coelhinho Craft Pintar
 
 Thanks for wanting to remix the world. Code and comments are in English.
 Player-facing text is in Brazilian Portuguese.
@@ -29,5 +29,5 @@ and [discussions](https://github.com/gamestudio42/mineboss/discussions).
 ## Pull requests
 
 - Keep the change small and tested.
-- Conventional commits (`feat:`, `fix:`, `test:`, `docs:`).
-- The Pages workflow publishes `dist` from `master`.
+- Commit titles use `[TAG] area: short description`, for example `[ADD]`, `[IMP]`, and `[FIX]`.
+- The Pages workflow publishes `dist` to the `gh-pages` branch. Pull request previews live under `pr-preview/`.

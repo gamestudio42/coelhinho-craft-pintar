@@ -1,10 +1,11 @@
+import { paintColorBlocks } from '../paint/palette.ts';
 import type { BlockAtlas } from '../render/atlas.ts';
 import { Block, getBlockDef, TILE_SIDE, ATLAS_TILE_PX, ATLAS_TILES_PER_ROW } from '../world/blocks.ts';
 
 export const CATALOG_GROUPS: Record<string, Block[]> = {
-  '🌳 Natureza': [Block.Grass, Block.Dirt, Block.Moss, Block.Sand, Block.Log, Block.BirchLog, Block.Leaves, Block.BirchLeaves],
+  '🌳 Natureza': [Block.Grass, Block.Dirt, Block.Moss, Block.Sand, Block.Log, Block.BirchLog, Block.Leaves, Block.BirchLeaves, Block.Carrot],
   '🏠 Construção': [Block.Stone, Block.Cobblestone, Block.Planks, Block.DarkBrick, Block.Obsidian, Block.Glass],
-  'Cores': [Block.White, Block.Red, Block.Orange, Block.Yellow, Block.Green, Block.Blue, Block.Purple, Block.Pink] ,
+  'Cores': paintColorBlocks(),
   '✨ Decoração': [Block.Glowstone, Block.Torch, Block.Bed, Block.Chest],
 };
 

@@ -10,13 +10,17 @@ import { isOneBlockCell } from '../world/oneblock/phases.ts';
 import {
   Block,
   TILE_SIDE,
+  canPaintBlock,
   getBlockDef,
   isBed,
   isBedMaterial,
+  isCarrotItem,
   isChest,
   isConsumable,
+  isSoil,
   isTorchFuel,
 } from '../world/blocks.ts';
+import { carrotPlantCell } from '../world/carrots.ts';
 import { raycastVoxels, type VoxelHit } from '../world/raycast.ts';
 import type { World } from '../world/World.ts';
 import { WORLD_HEIGHT } from '../world/Chunk.ts';
@@ -46,6 +50,12 @@ export class BlockInteraction {
     new THREE.MeshBasicMaterial({ color: 0x91edc3, transparent: true, opacity: 0.32, depthWrite: false }),
   );
 
+  /** When false, statues and altars do not open a fight. */
+  fightsEnabled = true;
+  paintMode = false;
+  paintBlock: Block = Block.Red;
+  onPainted: ((block: Block) => void) | null = null;
+  onCarrotPlanted: (() => void) | null = null;
   onAltarActivated: (() => void) | null = null;
   onStatueActivated: (() => void) | null = null;
   onBeaconActivated: (() => void) | null = null;
@@ -105,6 +115,7 @@ export class BlockInteraction {
   update(dt: number, input: Input, entityBlocksAim: boolean): InteractionResult {
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
     this.mineCooldown = Math.max(0, this.mineCooldown - dt);
+    this.placementHint = '';
 
     this.player.getEyePosition(this.origin);
     this.player.getForward(this.direction);
@@ -135,7 +146,9 @@ export class BlockInteraction {
     // Holding the button after tapping a creature must not start placing blocks behind it.
     if (!using) this.useHeld = false;
     else if (input.wasMousePressed(2) && this.onEntityUse?.()) this.useHeld = true;
-    if (using && !this.useHeld && this.placeCooldown === 0) this.useItem(this.target);
+    if (this.paintMode && using && !this.useHeld && this.placeCooldown === 0 && this.target && !entityBlocksAim) {
+      if (this.paintTarget(this.target)) this.placeCooldown = 0.12;
+    } else if (using && !this.useHeld && this.placeCooldown === 0) this.useItem(this.target);
 
     this.updateVisuals();
     return { targetDistance: this.target?.distance ?? Infinity, brokeBlock, brokenBlock };
@@ -176,7 +189,8 @@ export class BlockInteraction {
     });
 
     if (def.drop !== null && !this.player.creative) {
-      this.player.inventory.add(def.drop, 1);
+      const bonus = hit.block === Block.CarrotRipe ? 1 : 0;
+      this.player.inventory.add(def.drop, 1 + bonus);
       const drop = getBlockDef(def.drop);
       if (drop.heal > 0) this.onConsumableFound?.(drop.name);
       if (isUpgradeOre(def.drop)) this.onUpgradeFound?.(drop.name);
@@ -231,22 +245,42 @@ export class BlockInteraction {
    * Right click wakes the altar, eats, upgrades the hammer, crafts torches or
    * places a block. Eating and crafting work while looking at air.
    */
+  private paintTarget(hit: VoxelHit): boolean {
+    if (!canPaintBlock(hit.block)) {
+      this.placementHint = 'Esse não pinta. Escolha um bloco firme.';
+      return false;
+    }
+    if (hit.block !== this.paintBlock && !this.editBlock(hit.x, hit.y, hit.z, this.paintBlock)) return false;
+    this.onPainted?.(this.paintBlock);
+    this.player.startSwing();
+    this.sfx.play('place');
+    this.breakPoint.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+    this.particles.burst(this.breakPoint, {
+      count: 8,
+      color: this.atlas.tileColors[TILE_SIDE[this.paintBlock]] ?? new THREE.Color(this.paintBlock === Block.White ? 0xffffff : 0xffb347),
+      speed: 1.4,
+      spread: 0.55,
+      life: 0.35,
+    });
+    return true;
+  }
+
   private useItem(hit: VoxelHit | null): void {
-    if (hit && this.isAltarBlock(hit)) {
+    if (this.fightsEnabled && hit && this.isAltarBlock(hit)) {
       this.placeCooldown = PLACE_COOLDOWN;
       this.player.startSwing();
       this.onAltarActivated?.();
       return;
     }
 
-    if (hit && this.isStatueBlock(hit)) {
+    if (this.fightsEnabled && hit && this.isStatueBlock(hit)) {
       this.placeCooldown = PLACE_COOLDOWN;
       this.player.startSwing();
       this.onStatueActivated?.();
       return;
     }
 
-    if (hit && this.isBeaconBlock(hit)) {
+    if (this.fightsEnabled && hit && this.isBeaconBlock(hit)) {
       this.placeCooldown = PLACE_COOLDOWN;
       this.player.startSwing();
       this.onBeaconActivated?.();
@@ -264,6 +298,14 @@ export class BlockInteraction {
       this.onChestOpened?.();
       this.player.startSwing();
       this.sfx.play('place');
+      return;
+    }
+
+    const selected = this.player.inventory.selectedSlot.block;
+    if (selected !== null && isCarrotItem(selected)) {
+      if (this.tryPlantCarrot(hit)) return;
+      this.placeCooldown = PLACE_COOLDOWN;
+      this.onHammerFeedback?.('Plante na terra ou dê a cenoura ao coelhinho.');
       return;
     }
 
@@ -293,6 +335,22 @@ export class BlockInteraction {
     this.onBlockPlaced?.(block);
     this.player.startSwing();
     this.sfx.play('place');
+  }
+
+  private tryPlantCarrot(hit: VoxelHit | null): boolean {
+    if (!hit) return false;
+    const onSoil = isSoil(hit.block) ? carrotPlantCell(this.world, hit.x, hit.y, hit.z) : null;
+    const beside = carrotPlantCell(this.world, hit.x + hit.nx, hit.y + hit.ny - 1, hit.z + hit.nz);
+    const cell = onSoil ?? beside;
+    if (!cell) return false;
+    this.placeCooldown = PLACE_COOLDOWN;
+    if (!this.editBlock(cell.x, cell.y, cell.z, Block.CarrotSprout)) return false;
+    this.player.inventory.takeSelected();
+    this.onCarrotPlanted?.();
+    this.onBlockPlaced?.(Block.CarrotSprout);
+    this.player.startSwing();
+    this.sfx.play('place');
+    return true;
   }
 
   private tryConsume(): boolean {
@@ -437,7 +495,8 @@ export class BlockInteraction {
 
   private updatePreview(): void {
     this.preview.visible = false;
-    this.placementHint = '';
+    if (!this.paintMode) this.placementHint = '';
+    if (this.paintMode) return;
     const hit = this.target;
     const slot = this.player.inventory.selectedSlot;
     const block = slot.block;

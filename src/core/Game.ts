@@ -42,10 +42,12 @@ import {
   chunkTouchesGrove,
   chunkTouchesRuin,
 } from '../world/arena.ts';
-import { Block, isConsumable, isTorchFuel, isWater } from '../world/blocks.ts';
+import { Block, isCarrotItem, isConsumable, isTorchFuel, isWater } from '../world/blocks.ts';
+import { growCarrotsNear } from '../world/carrots.ts';
+import { PaintPalette } from '../ui/PaintPalette.ts';
 import { ChunkManager } from '../world/ChunkManager.ts';
 import { OneBlock } from '../world/oneblock/OneBlock.ts';
-import { ISLAND_Y, VOID_KILL_Y, chestLoot, isOneBlockCell, unlockBreaks } from '../world/oneblock/phases.ts';
+import { ISLAND_Y, VOID_KILL_Y, chestLoot, isOneBlockCell } from '../world/oneblock/phases.ts';
 import { TerrainGenerator } from '../world/terrain/generator.ts';
 import { World } from '../world/World.ts';
 import { HoldTrigger, Input } from './Input.ts';
@@ -159,6 +161,7 @@ export class Game {
   private mode: GameMode = 'adventure';
   private readonly oneBlock: OneBlock;
   private readonly hud: Hud;
+  private readonly palette: PaintPalette;
   private readonly overlay = new Overlay();
   private readonly session = new SessionLog();
 
@@ -187,11 +190,13 @@ export class Game {
   private voidFall = false;
   private readonly tossHold = new HoldTrigger(TOSS_HOLD_SECONDS);
   private readonly hitStop = new HitStop();
+  private carrotClock = 0;
   private lastBossState: string | null = null;
   private hintedWall = false;
   private readonly context: EntityContext;
 
   constructor(readonly canvas: HTMLCanvasElement) {
+    this.player.peaceful = true;
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -229,6 +234,8 @@ export class Game {
 
     this.world = new World(new TerrainGenerator(this.seed));
     this.oneBlock = new OneBlock(this.seed);
+    this.oneBlock.allowMobs = false;
+    document.documentElement.classList.add('peaceful');
     this.chunks = new ChunkManager(this.world, this.scene, [terrainMaterial, emissiveMaterial], waterMaterial);
     this.particles = new ParticleSystem(this.scene);
     this.torchLights = new TorchLights(this.scene);
@@ -244,11 +251,18 @@ export class Game {
       this.sfx,
       this.scene,
     );
+    this.interaction.fightsEnabled = false;
 
     this.viewModel = new ViewModel(this.camera, this.atlas);
     this.playerModel = new PlayerModel(this.atlas);
     this.scene.add(this.playerModel.root);
     this.hud = new Hud(this.atlas);
+    this.palette = PaintPalette.fromDocument();
+    this.palette.onChange = () => {
+      this.interaction.paintMode = this.palette.mode;
+      this.interaction.paintBlock = this.palette.color;
+      this.hud.showHint(this.palette.mode ? 'Botão direito pinta o bloco.' : 'Agora você constrói com blocos.', 2.4);
+    };
     this.combat.onHit = vulnerable => {
       this.hud.showHint(vulnerable ? 'Acertou! Ele está vulnerável!' : 'Acertou!', 0.7);
       if (vulnerable) this.hitStop.trigger(HIT_STOP.stagger);
@@ -484,11 +498,14 @@ export class Game {
       this.player.inventory.add(Block.Bed, 1);
       this.player.inventory.add(Block.Mushroom, 4);
       this.player.inventory.add(Block.CoalOre, 8);
+      this.player.inventory.add(Block.Carrot, 8);
       this.player.yaw = Math.atan2(-(ENTRANCE.x - x), -(ENTRANCE.z - z));
     } else {
       this.player.inventory.add(Block.Dirt, 4);
       this.player.inventory.add(Block.Mushroom, 2);
+      this.player.inventory.add(Block.Carrot, 8);
     }
+    this.ensureBunny();
     this.controller.update(0.0001, this.input);
   }
 
@@ -500,8 +517,8 @@ export class Game {
       return;
     }
     this.overlay.show({
-      title: 'MINEBOSS',
-      text: 'Construa do seu jeito e enfrente chefões quando quiser.',
+      title: 'Coelhinho Craft Pintar',
+      text: 'Pinte, construa e brinque com o coelhinho fofinho.',
       button: '▶ Jogar', secondary: 'Outros modos', showControls: false, onEscape: () => {},
     }, () => this.startQuickBuild(), () => this.showWorldChoice());
     this.addMenuExtras();
@@ -514,9 +531,9 @@ export class Game {
 
   private showWorldChoice(): void {
     this.overlay.show({
-      title: 'MINEBOSS',
-      text: 'Escolha seu mundo. Cada modo guarda uma partida separada.\nAventura: explore o mundo aberto. OneBlock: construa no vazio.',
-      button: '🌳 Aventura', secondary: '🏝 OneBlock', showControls: false, onEscape: () => {},
+      title: 'Coelhinho Craft Pintar',
+      text: 'Escolha um lugar para brincar. Cada um guarda uma partida.\nMundo: grama, árvores e cenouras. Ilha: um bloquinho para crescer.',
+      button: '🌳 Aventura', secondary: '🏝 Ilha', showControls: false, onEscape: () => {},
     }, () => this.showModeMenu('adventure'), () => this.showModeMenu('oneblock'));
     if (this.firstVisit) this.overlay.setBackAction(() => this.showMenu(), 'Voltar');
     this.addMenuExtras();
@@ -544,7 +561,7 @@ export class Game {
     const save = loadSave(mode);
     this.overlay.show({
       title: modeName(mode),
-      text: mode === 'adventure' ? 'Explore florestas, cavernas e ruínas. Descubra os bosses no mundo aberto.' : 'Mine o bloco infinito, expanda sua ilha e desbloqueie as ilhas dos bosses.',
+      text: mode === 'adventure' ? 'Um mundo de grama, árvores e cenouras para pintar e construir.' : 'Uma ilha pequenininha. Quebre o bloco e faça ela crescer.',
       button: save ? 'Continuar' : 'Jogar', secondary: save ? 'Nova partida' : 'Voltar',
       showControls: false,
     }, () => {
@@ -573,6 +590,8 @@ export class Game {
     document.getElementById('mouse-prompt')!.classList.toggle('hidden', this.input.locked);
     if (this.inEncounter || this.practice) {
       this.hud.hideHint();
+    } else if (this.player.peaceful) {
+      this.hud.showHint('Pinte as paredes, construa e dê cenoura ao coelhinho.', 5);
     } else if (this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked) {
       this.hud.showHint('Use o direito para colocar terra e ampliar a ilha.', 5);
     } else if (this.player.creative) {
@@ -598,7 +617,9 @@ export class Game {
       {
         title: 'Vamos brincar?',
         onEscape: () => this.startPlaying(),
-        text: fighting ? 'Continue ou saia da batalha.' : this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked ? 'Seu bloco infinito está esperando.' : 'Continue construindo ou visite o chefão quando quiser.',
+        text: this.player.peaceful
+          ? 'Continue pintando e brincando com o coelhinho.'
+          : fighting ? 'Continue ou saia da batalha.' : this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked ? 'Seu bloco infinito está esperando.' : 'Continue construindo ou visite o chefão quando quiser.',
         button: 'Continuar',
         secondary: 'Modos de jogo',
         showControls: false,
@@ -775,16 +796,19 @@ export class Game {
   }
 
   private tryStartFight(): void {
+    if (this.player.peaceful) return;
     if (this.inEncounter || !this.world.generator.shrineUnlocked || !this.arena.canSummon(this.player.position)) return;
     this.confirmFight(false);
   }
 
   private tryStartRuinFight(): void {
+    if (this.player.peaceful) return;
     if (this.inEncounter || !this.world.generator.ruinUnlocked || !this.ruin.canSummon(this.player.position)) return;
     this.confirmFight(true);
   }
 
   private tryStartGroveFight(): void {
+    if (this.player.peaceful) return;
     if (this.inEncounter || !this.world.generator.beaconUnlocked || !this.grove.canSummon(this.player.position)) return;
     this.confirmBeaconFight();
   }
@@ -861,8 +885,8 @@ export class Game {
         hasTorch: this.inventoryHas((id) => id === Block.Torch),
         platformDone: this.oneBlock.goals.has('platform'),
         shelterDone: this.oneBlock.goals.has('shelter'),
-        ruinUnlocked: this.mode === 'adventure' || this.oneBlock.ruinUnlocked,
-        ruinFound: this.arena.ruinFound,
+        ruinUnlocked: !this.player.peaceful && (this.mode === 'adventure' || this.oneBlock.ruinUnlocked),
+        ruinFound: this.player.peaceful || this.arena.ruinFound,
       },
       this.shownHints,
     );
@@ -914,6 +938,11 @@ export class Game {
     if (this.input.wasPressed('KeyB') && !this.practice) { this.openCatalog(); return; }
     if (this.input.wasPressed('KeyC') && !this.player.creative && !this.inEncounter && !this.practice) { this.showRecipes(); return; }
     if (this.input.wasPressed('KeyH')) { this.showHelp(); return; }
+    if (this.input.wasPressed('KeyP')) {
+      this.palette.setMode(!this.palette.mode);
+      this.palette.onChange?.();
+      return;
+    }
     if (this.input.wasPressed('KeyV')) this.cycleCameraView();
     if (this.input.wasPressed('KeyZ')) this.undoBuild(this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight'));
     if (this.input.wasPressed('KeyY')) this.undoBuild(true);
@@ -933,19 +962,33 @@ export class Game {
     else if (toss === 'tap') this.hud.showHint('Segure Q para soltar um bloco', 2);
     if (this.input.wasPressed('F3')) this.hud.debug.toggle();
 
-    this.player.health.immune = this.player.creative || this.practice !== null;
+    this.player.health.immune = this.player.peaceful || this.player.creative || this.practice !== null;
+    this.interaction.paintMode = this.palette.mode;
+    this.interaction.paintBlock = this.palette.color;
     this.oneBlock.gentle = this.player.gentle;
     if (this.mode === 'oneblock') this.oneBlock.update(dt, this.world, this.entities, this.player);
     this.controller.look(this.input);
     this.controller.update(dt, this.input);
     if (this.mode === 'oneblock' && !this.player.flying && this.player.position.y < VOID_KILL_Y) {
-      this.voidFall = true;
-      this.player.health.damage(this.player.health.max, { bypassInvulnerability: true });
+      if (this.player.peaceful) {
+        this.player.respawn();
+        this.player.flying = false;
+        this.hud.showHint('O coelhinho trouxe você de volta para a ilha.', 2.6);
+      } else {
+        this.voidFall = true;
+        this.player.health.damage(this.player.health.max, { bypassInvulnerability: true });
+      }
     }
-    this.combat.update(dt, this.input);
+    const allowCombat = !this.player.peaceful || this.inEncounter || this.practice !== null;
+    if (allowCombat) this.combat.update(dt, this.input);
     const building = !this.practice || this.practice.stage === 'wall';
     this.interaction.previewEnabled = !this.inEncounter && building;
-    const interaction = building ? this.interaction.update(dt, this.input, this.combat.aimed !== null) : { brokeBlock: false, brokenBlock: undefined };
+    const interaction = building ? this.interaction.update(dt, this.input, allowCombat && this.combat.aimed !== null) : { brokeBlock: false, brokenBlock: undefined };
+    this.carrotClock += dt;
+    if (this.carrotClock >= 7) {
+      this.carrotClock = 0;
+      growCarrotsNear(this.world, this.player.position.x, this.player.position.y, this.player.position.z);
+    }
     if (this.state !== 'playing') return;
     if (interaction.brokeBlock) {
       this.blocksMined += 1;
@@ -1039,7 +1082,10 @@ export class Game {
     );
     this.viewModel.setPlates(this.player.plates);
     this.hud.setSeed(this.seed);
-    const oneBlockMark = !this.oneBlock.ruinUnlocked
+    setText('carrot-count', `Cenouras: ${this.player.inventory.count(Block.Carrot)}`);
+    const oneBlockMark = this.player.peaceful
+      ? `${this.oneBlock.label} · ilha para pintar`
+      : !this.oneBlock.ruinUnlocked
       ? `Ruína: ${this.oneBlock.broken}/${this.oneBlock.ruinAt}`
       : !this.oneBlock.shrineUnlocked
         ? `Santuário: ${this.oneBlock.broken}/${this.oneBlock.shrineAt}`
@@ -1127,8 +1173,10 @@ export class Game {
     else if (this.controller.edgeBlocked) showActionCue({ icon: '✋', key: 'Espaço', text: 'Proteção de borda: queda à frente', kind: 'warning' });
     else if (this.interaction.placementHint) showActionCue({ icon: '!', key: '', text: this.interaction.placementHint, kind: 'warning' });
     else if (this.buildLesson) showActionCue(null);
-    else if (this.combat.aimed) showActionCue({ icon: '🔨', key: 'Esquerdo', text: 'Bater', kind: 'attack' });
-    else if (this.interaction.aimingAltar || this.interaction.aimingStatue || this.interaction.aimingBeacon) showActionCue({ icon: '👑', key: 'Direito', text: 'Visitar chefão', kind: 'build' });
+    else if (!this.player.peaceful && this.combat.aimed) showActionCue({ icon: '🔨', key: 'Esquerdo', text: 'Bater', kind: 'attack' });
+    else if (!this.player.peaceful && (this.interaction.aimingAltar || this.interaction.aimingStatue || this.interaction.aimingBeacon)) showActionCue({ icon: '👑', key: 'Direito', text: 'Visitar chefão', kind: 'build' });
+    else if (this.palette.mode && target) showActionCue({ icon: '🎨', key: 'Direito', text: 'Pintar este bloco', kind: 'build' });
+    else if (isCarrotItem(this.player.inventory.selectedSlot.block ?? -1)) showActionCue({ icon: '🥕', key: 'Direito', text: 'Plantar ou dar ao coelhinho', kind: 'build' });
     else if (this.interaction.aimingBed) showActionCue({ icon: '☾', key: 'Direito', text: 'Descansar', kind: 'build' });
     else if (this.interaction.aimingChest) showActionCue({ icon: '📦', key: 'Direito', text: 'Abrir baú', kind: 'build' });
     else if (this.interaction.holdingConsumable) showActionCue({ icon: '♥', key: 'Direito', text: 'Comer', kind: 'build' });
@@ -1152,6 +1200,12 @@ export class Game {
   private updateGuide(): void {
     const position = this.player.position;
     if (this.practice) { this.setGuideObjective(null); this.hud.compass.update(false,0,''); return; }
+    if (this.player.peaceful && !this.inEncounter) {
+      const text = this.palette.mode ? 'Escolha uma cor e pinte o bloco' : 'Pinte, construa e dê cenoura ao coelhinho';
+      this.setGuideObjective(this.guidance ? text : null);
+      this.hud.compass.update(false, 0, '');
+      return;
+    }
     if (this.player.creative && !this.inEncounter) {
       this.setGuideObjective(this.guidance ? 'Construa do seu jeito · Esc: sua base e chefões' : null);
       this.hud.compass.update(false, 0, '');
@@ -1335,6 +1389,7 @@ export class Game {
   }
 
   private tryDiscoverRuin(): void {
+    if (this.player.peaceful) return;
     if (this.ruin.active || this.arena.active || this.practice) return;
     if (this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked) return;
     if (!this.arena.tryDiscoverRuin(this.player.position)) return;
@@ -1468,7 +1523,7 @@ export class Game {
     this.player.creative = save.creative === true && save.mode === 'adventure';
     this.player.gentle = save.gentle !== false;
     this.player.edgeProtection = save.edgeProtection !== false;
-    this.player.health.immune = this.player.creative;
+    this.player.health.immune = Boolean(this.player.peaceful) || this.player.creative;
     this.player.inventory.unlimited = this.player.creative;
     this.survival = save.survival;
     this.creativePalette = save.creativePalette;
@@ -1552,6 +1607,7 @@ export class Game {
     }
     this.controller.update(0.0001, this.input);
     this.world.onEdit = onEdit;
+    this.ensureBunny();
   }
 
   private currentRun(): RunRecord {
@@ -1593,8 +1649,9 @@ export class Game {
       if (this.creativePalette) {
         this.player.inventory.load(this.creativePalette.slots, this.creativePalette.selected);
         for (const slot of this.creativePalette.reserve) if (slot.block !== null) this.player.inventory.reserve.set(slot.block, slot.count);
-      } else for (const block of [Block.Planks, Block.Cobblestone, Block.Glowstone, Block.Log, Block.Leaves, Block.Bed]) this.player.inventory.add(block, 64);
+      } else for (const block of [Block.Planks, Block.Cobblestone, Block.Glowstone, Block.Log, Block.Leaves, Block.Bed, Block.Carrot]) this.player.inventory.add(block, block === Block.Carrot ? 16 : 64);
       this.player.health.reset();
+      if (!this.player.inventory.count(Block.Carrot)) this.player.inventory.add(Block.Carrot, 16);
     } else {
       this.creativePalette = this.inventorySnapshot();
       const saved = this.survival;
@@ -1610,7 +1667,7 @@ export class Game {
     }
     this.player.creative = enabled;
     this.player.inventory.unlimited = enabled;
-    this.player.health.immune = enabled;
+    this.player.health.immune = Boolean(this.player.peaceful) || enabled;
   }
 
   private chooseStyle(mode: GameMode): void {
@@ -1618,17 +1675,14 @@ export class Game {
       this.newGame(mode, 'quick');
       return;
     }
-    this.overlay.show({ title: 'Como quer brincar?', text: 'Construção livre: blocos sem fim e voo. Sobrevivência: colete materiais. Você pode trocar depois, no mesmo mundo.', button: 'Construção livre ∞', secondary: 'Sobrevivência', showControls: false },
+    this.overlay.show({ title: 'Como quer brincar?', text: 'Construção livre: blocos sem fim e voo. Explorar: pegue terra, madeira e cenouras. Dá para pintar nos dois.', button: 'Construção livre ∞', secondary: 'Explorar', showControls: false },
       () => this.startQuickBuild(), () => this.newGame(mode));
     this.overlay.setBackAction(() => this.showModeMenu(mode));
   }
 
   private confirmClassicOneBlock(): void {
-    const ruin = unlockBreaks('ruin', 'classic');
-    const shrine = unlockBreaks('shrine', 'classic');
-    const beacon = unlockBreaks('beacon', 'classic');
-    const replacing = loadSave('oneblock') ? ' Isso substitui a partida atual do OneBlock.' : '';
-    this.overlay.show({ title: 'Ritmo clássico', text: `Ruína em ${ruin} blocos, santuário em ${shrine} e farol em ${beacon}.${replacing}`, button: 'Criar partida', secondary: 'Voltar', showControls: false },
+    const replacing = loadSave('oneblock') ? ' Isso substitui a ilha atual.' : '';
+    this.overlay.show({ title: 'Ilha devagar', text: `Uma ilha maior para construir com calma.${replacing}`, button: 'Criar partida', secondary: 'Voltar', showControls: false },
       () => this.newGame('oneblock', 'classic'), () => this.showWorldOptions('oneblock'));
   }
 
@@ -1679,7 +1733,7 @@ export class Game {
       }, { icon: '🏠', description: 'Voltar com seus itens' });
     } else {
       this.overlay.addAction(this.player.creative ? 'Construir' : 'Mochila e criação', () => this.showBuildingTools(), { icon: '🧱', description: 'Blocos e ideias' });
-      this.overlay.addAction('Chefões', () => this.showBossMenu(), { icon: '👑', description: 'Treinar ou enfrentar' });
+      if (!this.player.peaceful) this.overlay.addAction('Chefões', () => this.showBossMenu(), { icon: '👑', description: 'Treinar ou enfrentar' });
       this.overlay.addAction('Minha base', () => this.showHomeMenu(), { icon: '🏠', description: 'Seu lugar no mundo' });
       const { done, total } = albumCount(this.albumSections());
       this.overlay.addAction('Álbum', () => this.showAlbum(), { icon: '📒', description: `${done} de ${total} figurinhas` });
@@ -1728,7 +1782,7 @@ export class Game {
     this.overlay.addAction('Importar mundo', () => this.importWorld());
     if (loadPreviousSave(mode)) this.overlay.addAction('Recuperar cópia anterior', () => this.confirmRecovery(mode));
     if (mode === 'oneblock') this.overlay.addAction('Nova partida no ritmo clássico', () => this.confirmClassicOneBlock(), {
-      description: `Ruína em ${unlockBreaks('ruin', 'classic')} blocos em vez de ${unlockBreaks('ruin', 'quick')}`,
+      description: 'Uma ilha mais devagar para construir',
     });
   }
 
@@ -1738,11 +1792,11 @@ export class Game {
     this.overlay.show({ title: 'Mais opções', text: 'Ajuste o jogo e cuide da sua partida.', button: 'Voltar à pausa', secondary: 'Continuar jogo', showSettings: true, showControls: false },
       () => this.showPaused(), () => this.startPlaying());
     if (!fighting) {
-      if (this.mode === 'adventure') this.overlay.addAction(this.player.creative ? 'Trocar para Sobrevivência' : 'Construção livre ∞', () => {
+      if (this.mode === 'adventure') this.overlay.addAction(this.player.creative ? 'Explorar o mundo' : 'Construção livre ∞', () => {
         if (this.player.creative) this.goHome();
         this.setCreative(!this.player.creative); this.showMoreOptions();
       });
-      this.overlay.addAction(`Dificuldade: ${this.player.gentle ? 'Tranquila' : 'Normal'}`, () => { this.player.gentle = !this.player.gentle; this.showMoreOptions(); });
+      if (!this.player.peaceful) this.overlay.addAction(`Dificuldade: ${this.player.gentle ? 'Tranquila' : 'Normal'}`, () => { this.player.gentle = !this.player.gentle; this.showMoreOptions(); });
       this.overlay.addAction(`Proteção de borda: ${this.player.edgeProtection ? 'ligada' : 'desligada'}`, () => { this.player.edgeProtection = !this.player.edgeProtection; this.showMoreOptions(); });
       this.overlay.addAction(`Guia: ${this.guidance ? 'ligado' : 'desligado'}`, () => { this.guidance = !this.guidance; this.showMoreOptions(); });
     }
@@ -1845,6 +1899,43 @@ export class Game {
     this.saveSoon = true;
   }
 
+  /** A peaceful world always has a bunny walking with the player. */
+  private ensureBunny(): void {
+    if (this.player.peaceful) {
+      this.player.health.immune = true;
+      if (this.player.health.current < this.player.health.max) this.player.health.reset();
+    }
+    if (!this.player.peaceful || this.petHome) return;
+    const spawn = this.player.spawn;
+    this.petHome = { x: spawn.x + 1.1, y: spawn.y, z: spawn.z };
+    this.petFollowing = true;
+  }
+
+  private tryFeedPet(pet: Pet): boolean {
+    const inventory = this.player.inventory;
+    if (!inventory) return false;
+    const slot = inventory.selectedSlot;
+    if (!slot || !isCarrotItem(slot.block ?? -1) || slot.count <= 0) return false;
+    this.player.inventory.takeSelected();
+    pet.feed();
+    const text = 'Nhac! O coelhinho adorou a cenoura!';
+    this.hud.showHint(text, 2.8);
+    this.narrator?.say(text);
+    this.sfx.play('eat');
+    this.player.startSwing();
+    this.particles.burst(pet.position, {
+      count: 14,
+      color: 0xff8ad4,
+      speed: 2.2,
+      spread: 0.7,
+      life: 0.7,
+      gravity: 4,
+      upwardBias: 0.8,
+    });
+    this.saveSoon = true;
+    return true;
+  }
+
   /** Respawns the pet after any entity clear and keeps it home during fights. */
   private tendPet(): void {
     const home = this.petHome;
@@ -1867,8 +1958,9 @@ export class Game {
     if (!hit || hit.entity !== pet) return false;
     const block = this.interaction.target;
     if (block && block.distance < hit.distance) return false;
+    if (this.tryFeedPet(pet)) return true;
     this.petFollowing = !this.petFollowing;
-    const text = this.petFollowing ? 'Seu bichinho vai seguir você' : 'Seu bichinho vai esperar no curral';
+    const text = this.petFollowing ? 'O coelhinho vai com você' : 'O coelhinho espera aqui';
     this.hud.showHint(text, 3);
     this.narrator?.say(text);
     this.sfx.play('eat');
@@ -1904,7 +1996,9 @@ export class Game {
       : this.player.creative
         ? '1. Aperte B e escolha um bloco.\n2. Mire no chão e use o direito para colocar.\n3. Clique com o esquerdo para remover.'
         : '1. Use o esquerdo para pegar blocos.\n2. Use o direito para colocar ou usar.\n3. Aperte B para abrir a mochila.';
-    const bossTip = this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked
+    const bossTip = this.player.peaceful
+      ? 'P pinta. O botão direito pinta o bloco inteiro. Com uma cenoura, plante na terra ou dê ao coelhinho.'
+      : this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked
       ? `O Sentinela aparece depois de ${this.oneBlock.ruinAt} blocos quebrados.`
       : 'Para o chefão: Esc > Chefões > Visitar o Sentinela. Pule as ondas e bata quando aparecer BATA AGORA!';
     this.overlay.show({ title: 'Como brincar', text: `${firstSteps}\n\nPara andar: W A S D ou as setas, e o mouse para olhar.\nV mostra o personagem por trás. Aperte de novo para voltar.\n${bossTip}`, button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
@@ -1998,7 +2092,7 @@ export class Game {
       if (entity !== this.arena.boss && entity !== this.ruin.boss && entity !== this.grove.boss && entity.team === 'boss' && entity.clearedOnDeath) this.entities.remove(entity);
     }
     if (this.fightCreative) { this.fightCreative = false; this.setCreative(true); }
-    this.player.health.immune = this.player.creative;
+    this.player.health.immune = Boolean(this.player.peaceful) || this.player.creative;
     this.player.health.invulnerability = 5;
     if (this.fightReturn) {
       this.player.flying = this.player.creative && this.fightReturn.flying === true;
