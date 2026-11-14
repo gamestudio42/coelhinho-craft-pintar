@@ -29,7 +29,7 @@
 1. Abra o jogo e toque no botão grande **JOGAR**. Ele entra direto no mundo pacífico, com o coelhinho.
 2. No alto da tela, quatro dicas com desenho: construir, pintar, pegar cenoura e dar a cenoura. O ✕ fecha. No menu, **Ajuda** mostra de novo.
 3. **Construir:** botão direito (ou o botão 🧱 no toque) coloca. Botão esquerdo (ou 🥕) tira.
-4. **Pintar:** toque em **Pintar**, escolha uma cor grande e pinte com o direito.
+4. **Pintar:** toque em **🎨** para abrir as cores, depois em **Pintar** e numa cor. No celular, o ✕ ou um toque fora fecha. O círculo de andar e os botões de pegar e colocar ficam livres.
 5. Ache cenouras na grama. Olhe para o coelhinho branco e dê a cenoura. Ele pula de alegria.
 
 No celular, arraste o círculo da esquerda para andar e a tela para olhar. No computador, o mouse olha depois do clique.
