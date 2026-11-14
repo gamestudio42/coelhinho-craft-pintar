@@ -76,7 +76,9 @@ export class Pet extends Entity {
     const dz = target.z - this.position.z;
     const distance = Math.hypot(dx, dz);
     if (this.following) this.settled = false;
-    else if (distance <= PET_HOME_RADIUS) this.settled = true;
+    // Height matters: standing on the fence is close to home on the map, but
+    // the bunny still has to hop down inside the pen.
+    else if (distance <= PET_HOME_RADIUS && Math.abs(this.position.y - this.home.y) < 0.75) this.settled = true;
     const returning = !this.following && !this.settled;
     this.strayTime = returning ? this.strayTime + dt : 0;
 
