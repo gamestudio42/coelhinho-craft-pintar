@@ -21,6 +21,7 @@ import {
   isSoil,
   isTorchFuel,
 } from '../world/blocks.ts';
+import { PAINT_FILL_LIMIT, paintBucket } from '../paint/bucket.ts';
 import { carrotPlantCell } from '../world/carrots.ts';
 import { raycastVoxels, type VoxelHit } from '../world/raycast.ts';
 import type { World } from '../world/World.ts';
@@ -54,8 +55,11 @@ export class BlockInteraction {
   /** When false, statues and altars do not open a fight. */
   fightsEnabled = true;
   paintMode = false;
+  /** Right click recolors a whole connected patch instead of one block. */
+  bucketMode = false;
   paintBlock: Block = Block.Red;
   onPainted: ((block: Block) => void) | null = null;
+  onFilled: ((count: number, capped: boolean) => void) | null = null;
   onCarrotPlanted: (() => void) | null = null;
   onPaintingUsed: ((hit: VoxelHit) => void) | null = null;
   onAltarActivated: (() => void) | null = null;
@@ -255,6 +259,7 @@ export class BlockInteraction {
    * places a block. Eating and crafting work while looking at air.
    */
   private paintTarget(hit: VoxelHit): boolean {
+    if (this.bucketMode) return this.fillTarget(hit);
     if (!canPaintBlock(hit.block)) {
       this.placementHint = 'Esse não pinta. Escolha um bloco firme.';
       return false;
@@ -270,6 +275,35 @@ export class BlockInteraction {
       speed: 1.4,
       spread: 0.55,
       life: 0.35,
+    });
+    return true;
+  }
+
+  private fillTarget(hit: VoxelHit): boolean {
+    const cells = paintBucket(
+      (x, y, z) => this.world.getBlock(x, y, z),
+      hit.x, hit.y, hit.z, this.paintBlock,
+    );
+    if (cells.length === 0) {
+      this.placementHint = canPaintBlock(hit.block) ? 'Já está dessa cor.' : 'Esse não pinta. Escolha um bloco firme.';
+      return false;
+    }
+    let painted = 0;
+    for (const cell of cells) {
+      if (this.editBlock(cell.x, cell.y, cell.z, this.paintBlock)) painted += 1;
+    }
+    if (painted === 0) return false;
+    this.onPainted?.(this.paintBlock);
+    this.onFilled?.(painted, cells.length >= PAINT_FILL_LIMIT);
+    this.player.startSwing();
+    this.sfx.play('place');
+    this.breakPoint.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+    this.particles.burst(this.breakPoint, {
+      count: 12,
+      color: this.atlas.tileColors[TILE_SIDE[this.paintBlock]] ?? new THREE.Color(0xffb347),
+      speed: 1.6,
+      spread: 0.7,
+      life: 0.4,
     });
     return true;
   }

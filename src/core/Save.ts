@@ -37,6 +37,7 @@ export interface SavedRun {
   trophies?: number[];
   builds?: string[];
   pet?: SavedPoint & { following: boolean };
+  friends?: Array<SavedPoint & { kind: 'cat' | 'dog'; following: boolean }>;
 
   version: number;
   seed: number;
@@ -137,6 +138,13 @@ export function parseSave(raw: string, mode?: GameMode): SavedRun | null {
     if (parsed.trophies !== undefined && (!Array.isArray(parsed.trophies) || parsed.trophies.some(id => id !== 26 && id !== 27 && id !== 42))) return null;
     if (parsed.builds !== undefined && (!Array.isArray(parsed.builds) || parsed.builds.some(kind => !['house', 'tower', 'pen'].includes(kind)))) return null;
     if (parsed.pet !== undefined && (![parsed.pet.x, parsed.pet.y, parsed.pet.z].every(coord) || typeof parsed.pet.following !== 'boolean')) return null;
+    if (parsed.friends !== undefined) {
+      if (!Array.isArray(parsed.friends) || parsed.friends.length > 4) return null;
+      for (const friend of parsed.friends) {
+        if (!friend || (friend.kind !== 'cat' && friend.kind !== 'dog') || typeof friend.following !== 'boolean') return null;
+        if (![friend.x, friend.y, friend.z].every(coord)) return null;
+      }
+    }
     if (parsed.shownHints !== undefined && (!Array.isArray(parsed.shownHints) || parsed.shownHints.length > 32 || parsed.shownHints.some(id => typeof id !== 'string' || id.length === 0 || id.length > 32))) return null;
     if (parsed.edits.length > 300_000) return null;
     for (const edit of parsed.edits) {

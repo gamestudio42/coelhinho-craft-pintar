@@ -17,7 +17,7 @@ import { BuildHistory } from '../player/BuildHistory.ts';
 import { lessonCaption, updateBuildLesson } from '../ui/BuildLesson.ts';
 import { BlockInteraction } from '../player/BlockInteraction.ts';
 import { HAMMER, HammerTier, PLATE_COST, PLATES, PlateTier, UPGRADE_COST } from '../player/Hammer.ts';
-import { Pet, type PetHome } from '../entities/Pet.ts';
+import { Pet, petName, type PetHome, type PetKind } from '../entities/Pet.ts';
 import { IronGolem, Villager } from '../entities/VillageFolk.ts';
 import { Player, PLAYER_REACH, SWING_DURATION } from '../player/Player.ts';
 import { GENTLE_AIM_MARGIN, PlayerCombat } from '../player/PlayerCombat.ts';
@@ -45,6 +45,8 @@ import {
 } from '../world/arena.ts';
 import { Block, isCarrotItem, isConsumable, isGoldenCarrot, isTorchFuel, isWater } from '../world/blocks.ts';
 import { growCarrotsNear } from '../world/carrots.ts';
+import { SkyCycle, type SkyMood } from '../world/weather.ts';
+import { SkyShow } from '../render/SkyShow.ts';
 import { SECRET, VILLAGE, groundY, toggleSecretDoor } from '../world/places.ts';
 import { PaintPalette } from '../ui/PaintPalette.ts';
 import { fillPlayTips, hideTips, PLAY_TIPS, tipsOpen, TIPS_STORAGE_KEY } from '../ui/PlayTips.ts';
@@ -160,6 +162,15 @@ export class Game {
   private pet: Pet | null = null;
   private petHome: PetHome | null = null;
   private petFollowing = false;
+  private cat: Pet | null = null;
+  private dog: Pet | null = null;
+  private catHome: PetHome | null = null;
+  private dogHome: PetHome | null = null;
+  private catFollowing = false;
+  private dogFollowing = false;
+  private readonly sky = new SkyCycle();
+  private skyShow: SkyShow | null = null;
+  private skyMood: SkyMood = 'clear';
   private guidance = true;
   private buildLesson = 0;
   private mode: GameMode = 'adventure';
@@ -269,9 +280,16 @@ export class Game {
     this.palette = PaintPalette.fromDocument();
     this.palette.onChange = () => {
       this.interaction.paintMode = this.palette.mode;
+      this.interaction.bucketMode = this.palette.bucket;
       this.interaction.paintBlock = this.palette.color;
-      this.hud.showHint(this.palette.mode ? 'Direito pinta.' : 'Agora é construir.', 2.4);
+      const hint = this.palette.bucket ? 'O balde pinta vários iguais.' : this.palette.mode ? 'Direito pinta.' : 'Agora é construir.';
+      this.hud.showHint(hint, 2.4);
     };
+    this.interaction.onFilled = (count, capped) => {
+      const text = capped ? `O balde pintou ${count}. Toque de novo.` : 'O balde pintou os blocos iguais.';
+      this.hud.showHint(text, 2.2);
+    };
+    this.skyShow = new SkyShow(this.scene);
     this.combat.onHit = vulnerable => {
       this.hud.showHint(vulnerable ? 'Acertou! Ele está vulnerável!' : 'Acertou!', 0.7);
       if (vulnerable) this.hitStop.trigger(HIT_STOP.stagger);
@@ -749,6 +767,12 @@ export class Game {
     this.pet = null;
     this.petHome = null;
     this.petFollowing = false;
+    this.cat = null;
+    this.dog = null;
+    this.catHome = null;
+    this.dogHome = null;
+    this.catFollowing = false;
+    this.dogFollowing = false;
     this.player.creative = false;
     this.player.health.immune = false;
     this.player.inventory.unlimited = false;
@@ -985,6 +1009,7 @@ export class Game {
 
     this.player.health.immune = this.player.peaceful || this.player.creative || this.practice !== null;
     this.interaction.paintMode = this.palette.mode;
+    this.interaction.bucketMode = this.palette.bucket;
     this.interaction.paintBlock = this.palette.color;
     this.oneBlock.gentle = this.player.gentle;
     if (this.mode === 'oneblock') this.oneBlock.update(dt, this.world, this.entities, this.player);
@@ -1005,8 +1030,10 @@ export class Game {
     const building = !this.practice || this.practice.stage === 'wall';
     this.interaction.previewEnabled = !this.inEncounter && building;
     const interaction = building ? this.interaction.update(dt, this.input, allowCombat && this.combat.aimed !== null) : { brokeBlock: false, brokenBlock: undefined };
+    const nextSky = this.sky.step(dt);
+    this.noteSky(nextSky);
     this.carrotClock += dt;
-    if (this.carrotClock >= 7) {
+    if (this.carrotClock >= this.sky.carrotEvery()) {
       this.carrotClock = 0;
       growCarrotsNear(this.world, this.player.position.x, this.player.position.y, this.player.position.z);
     }
@@ -1352,6 +1379,8 @@ export class Game {
   /** Blends light and fog toward pitch black as the camera descends. */
   private updateAtmosphere(dt: number): void {
     const t = clamp((this.camera.position.y - UNDERGROUND_Y) / 26, 0, 1);
+    const outdoors = this.sky.mood === 'rain' ? 0x8ea4b8 : SKY_COLOR;
+    this.skyColor.setHex(outdoors);
     this.blendedColor.copy(this.caveColor).lerp(this.skyColor, t);
 
     const submerged = this.eyeInWater();
@@ -1361,8 +1390,10 @@ export class Game {
     (this.scene.background as THREE.Color).copy(this.blendedColor);
     this.fog.near = submerged ? 1.4 : 16 + t * 36;
     this.fog.far = submerged ? 16 : 90 + t * 80;
-    this.sunLight.intensity = submerged ? 0.18 : 0.1 + t * 0.95;
-    this.skyLight.intensity = submerged ? 0.28 : 0.42 + t * 0.73;
+    const rainDim = this.sky.mood === 'rain' ? 0.72 : 1;
+    this.sunLight.intensity = (submerged ? 0.18 : 0.1 + t * 0.95) * rainDim;
+    this.skyLight.intensity = (submerged ? 0.28 : 0.42 + t * 0.73) * rainDim;
+    this.skyShow?.update(this.camera.position, this.player.yaw, this.sky.mood, dt);
 
     this.lamp.position.copy(this.camera.position);
     this.lamp.intensity = submerged ? 22 : 34 * (1 - t);
@@ -1490,6 +1521,10 @@ export class Game {
       trophies: [...this.trophies],
       builds: [...(this.builds?.found ?? [])],
       pet: this.petHome ? { ...this.petHome, following: this.petFollowing } : undefined,
+      friends: [
+        ...(this.catHome ? [{ kind: 'cat' as const, ...this.catHome, following: this.catFollowing }] : []),
+        ...(this.dogHome ? [{ kind: 'dog' as const, ...this.dogHome, following: this.dogFollowing }] : []),
+      ],
       mode: this.mode,
       seed: this.seed,
       elapsed: this.elapsed,
@@ -1561,8 +1596,24 @@ export class Game {
     for (const id of save.trophies ?? []) this.trophies.add(id);
     this.builds?.load(save.builds);
     this.pet = null;
+    this.cat = null;
+    this.dog = null;
     this.petHome = save.pet ? { x: save.pet.x, y: save.pet.y, z: save.pet.z } : null;
     this.petFollowing = save.pet?.following === true;
+    this.catHome = null;
+    this.dogHome = null;
+    this.catFollowing = false;
+    this.dogFollowing = false;
+    for (const friend of save.friends ?? []) {
+      const home = { x: friend.x, y: friend.y, z: friend.z };
+      if (friend.kind === 'cat') {
+        this.catHome = home;
+        this.catFollowing = friend.following;
+      } else {
+        this.dogHome = home;
+        this.dogFollowing = friend.following;
+      }
+    }
     this.mode = save.mode;
     this.pendingDeath = false;
     this.saveSoon = false;
@@ -1787,6 +1838,14 @@ export class Game {
       this.petFollowing = !this.petFollowing;
       this.showPaused();
     }, { icon: '🐰', description: withMe ? 'O coelhinho vem' : 'O coelhinho fica' });
+    this.overlay.addAction('Gatinho', () => {
+      this.catFollowing = !this.catFollowing;
+      this.showPaused();
+    }, { icon: '🐱', description: this.catFollowing ? 'Vem junto' : 'Fica esperando' });
+    this.overlay.addAction('Cachorrinho', () => {
+      this.dogFollowing = !this.dogFollowing;
+      this.showPaused();
+    }, { icon: '🐶', description: this.dogFollowing ? 'Vem junto' : 'Fica esperando' });
     this.overlay.addAction('Ajuda', () => this.showHelp(), { icon: '❓', description: 'Como brincar' });
     this.overlay.addAction('Som', () => this.showKidSound(), { icon: '🔊' });
     this.overlay.addAction('Para adultos', () => this.showMoreOptions(), { quiet: true });
@@ -1989,10 +2048,27 @@ export class Game {
       this.player.health.immune = true;
       if (this.player.health.current < this.player.health.max) this.player.health.reset();
     }
-    if (!this.player.peaceful || this.petHome) return;
+    if (!this.player.peaceful) return;
+    if (!this.petHome) {
+      const spawn = this.player.spawn;
+      this.petHome = { x: spawn.x + 1.1, y: spawn.y, z: spawn.z };
+      this.petFollowing = true;
+    }
+    this.ensureFriend('cat', -1.2, 0.9);
+    this.ensureFriend('dog', 0.3, -1.2);
+  }
+
+  private ensureFriend(kind: 'cat' | 'dog', dx: number, dz: number): void {
+    if (kind === 'cat' ? this.catHome : this.dogHome) return;
     const spawn = this.player.spawn;
-    this.petHome = { x: spawn.x + 1.1, y: spawn.y, z: spawn.z };
-    this.petFollowing = true;
+    const home = { x: spawn.x + dx, y: spawn.y, z: spawn.z + dz };
+    if (kind === 'cat') {
+      this.catHome = home;
+      this.catFollowing = true;
+    } else {
+      this.dogHome = home;
+      this.dogFollowing = true;
+    }
   }
 
   private useSecretDoor(): void {
@@ -2032,7 +2108,8 @@ export class Game {
     this.player.inventory.takeSelected();
     if (golden) pet.growBig();
     else pet.feed();
-    const text = golden ? 'Uau! O coelhinho ficou gigante!' : 'Nhac! O coelhinho adorou a cenoura!';
+    const name = petName(pet.kind);
+    const text = golden ? `Uau! O ${name} ficou gigante!` : `Nhac! O ${name} adorou a cenoura!`;
     this.hud.showHint(text, 2.8);
     this.narrator?.say(text);
     this.sfx.play('eat');
@@ -2050,43 +2127,82 @@ export class Game {
     return true;
   }
 
-  /** Respawns the pet after any entity clear and keeps it home during fights. */
+  /** Respawns the friends after any entity clear and keeps them home during fights. */
   private tendPet(): void {
-    const home = this.petHome;
+    this.tendFriend('bunny');
+    this.tendFriend('cat');
+    this.tendFriend('dog');
+  }
+
+  private tendFriend(kind: PetKind): void {
+    const home = kind === 'cat' ? this.catHome : kind === 'dog' ? this.dogHome : this.petHome;
     if (!home) return;
-    if (!this.pet || this.pet.removed) {
+    let pet = kind === 'cat' ? this.cat : kind === 'dog' ? this.dog : this.pet;
+    if (!pet || pet.removed) {
       if (!this.world.getChunk(Math.floor(home.x) >> 4, Math.floor(home.z) >> 4)) return;
-      this.pet = this.entities.add(new Pet(home));
+      pet = this.entities.add(new Pet(home, kind));
+      if (kind === 'cat') this.cat = pet;
+      else if (kind === 'dog') this.dog = pet;
+      else this.pet = pet;
     }
-    this.pet.following = this.petFollowing && !this.inEncounter && !this.practice;
-    if (this.pet.justShrunk) {
-      this.pet.justShrunk = false;
-      const text = 'O coelhinho voltou ao tamanho normal.';
+    const wants = kind === 'cat' ? this.catFollowing : kind === 'dog' ? this.dogFollowing : this.petFollowing;
+    pet.following = wants && !this.inEncounter && !this.practice;
+    if (pet.justShrunk) {
+      pet.justShrunk = false;
+      const text = `O ${petName(kind)} voltou ao tamanho normal.`;
       this.hud.showHint(text, 2.4);
       this.narrator?.say(text);
     }
   }
 
   private tapPet(): boolean {
-    const pet = this.pet;
-    if (!pet || pet.removed || this.inEncounter || this.practice) return false;
+    if (this.inEncounter || this.practice) return false;
+    if (![this.pet, this.cat, this.dog].some((friend) => friend && !friend.removed)) return false;
     const origin = new THREE.Vector3();
     const direction = new THREE.Vector3();
     this.player.getEyePosition(origin);
     this.player.getForward(direction);
     const hit = this.entities.raycast(origin, direction, PLAYER_REACH, 'neutral', this.player.gentle ? GENTLE_AIM_MARGIN : 0.25);
-    if (!hit || hit.entity !== pet) return false;
+    if (!hit || !(hit.entity instanceof Pet)) return false;
+    const friend = hit.entity;
     const block = this.interaction.target;
     if (block && block.distance < hit.distance) return false;
-    if (this.tryFeedPet(pet)) return true;
-    this.petFollowing = !this.petFollowing;
-    const text = this.petFollowing ? 'O coelhinho vai com você' : 'O coelhinho espera aqui';
+    if (this.tryFeedPet(friend)) return true;
+    this.setFriendFollowing(friend, !this.friendWantsCompany(friend));
+    const name = petName(friend.kind);
+    const text = this.friendWantsCompany(friend) ? `O ${name} vai com você` : `O ${name} espera aqui`;
     this.hud.showHint(text, 3);
     this.narrator?.say(text);
     this.sfx.play('eat');
     this.player.startSwing();
     this.saveSoon = true;
     return true;
+  }
+
+  private friendWantsCompany(pet: Pet): boolean {
+    if (pet.kind === 'cat') return this.catFollowing;
+    if (pet.kind === 'dog') return this.dogFollowing;
+    return this.petFollowing;
+  }
+
+  private setFriendFollowing(pet: Pet, following: boolean): void {
+    if (pet.kind === 'cat') this.catFollowing = following;
+    else if (pet.kind === 'dog') this.dogFollowing = following;
+    else this.petFollowing = following;
+  }
+
+  private noteSky(next: SkyMood): void {
+    if (next === this.skyMood) return;
+    this.skyMood = next;
+    if (this.state !== 'playing') return;
+    const text = next === 'rain'
+      ? 'Chuvinha! As cenouras crescem mais rápido.'
+      : next === 'rainbow'
+        ? 'Olha o arco-íris!'
+        : '';
+    if (!text) return;
+    this.hud.showHint(text, 3.2);
+    this.narrator?.say(text);
   }
 
   private showBuildIdeas(): void {
