@@ -16,6 +16,7 @@ import {
   isBedMaterial,
   isCarrotItem,
   isChest,
+  isGoldenCarrot,
   isConsumable,
   isSoil,
   isTorchFuel,
@@ -56,6 +57,7 @@ export class BlockInteraction {
   paintBlock: Block = Block.Red;
   onPainted: ((block: Block) => void) | null = null;
   onCarrotPlanted: (() => void) | null = null;
+  onPaintingUsed: ((hit: VoxelHit) => void) | null = null;
   onAltarActivated: (() => void) | null = null;
   onStatueActivated: (() => void) | null = null;
   onBeaconActivated: (() => void) | null = null;
@@ -146,7 +148,14 @@ export class BlockInteraction {
     // Holding the button after tapping a creature must not start placing blocks behind it.
     if (!using) this.useHeld = false;
     else if (input.wasMousePressed(2) && this.onEntityUse?.()) this.useHeld = true;
-    if (this.paintMode && using && !this.useHeld && this.placeCooldown === 0 && this.target && !entityBlocksAim) {
+    if (
+      using && !this.useHeld && this.placeCooldown === 0 && this.target?.block === Block.Painting && !entityBlocksAim
+    ) {
+      this.placeCooldown = PLACE_COOLDOWN;
+      this.onPaintingUsed?.(this.target);
+      this.player.startSwing();
+      this.sfx.play('place');
+    } else if (this.paintMode && using && !this.useHeld && this.placeCooldown === 0 && this.target && !entityBlocksAim) {
       if (this.paintTarget(this.target)) this.placeCooldown = 0.12;
     } else if (using && !this.useHeld && this.placeCooldown === 0) this.useItem(this.target);
 
@@ -302,6 +311,11 @@ export class BlockInteraction {
     }
 
     const selected = this.player.inventory.selectedSlot.block;
+    if (selected !== null && isGoldenCarrot(selected)) {
+      this.placeCooldown = PLACE_COOLDOWN;
+      this.onHammerFeedback?.('Dê a cenoura dourada ao coelhinho.');
+      return;
+    }
     if (selected !== null && isCarrotItem(selected)) {
       if (this.tryPlantCarrot(hit)) return;
       this.placeCooldown = PLACE_COOLDOWN;

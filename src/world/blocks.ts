@@ -67,6 +67,9 @@ export enum Block {
   Lavender = 60,
   Mint = 61,
   Chocolate = 62,
+  Painting = 63,
+  Hay = 64,
+  GoldenCarrot = 65,
 }
 
 export enum Tile {
@@ -323,6 +326,16 @@ export const BLOCKS: readonly BlockDef[] = [
   def(Block.Lavender, 'Lilás', [Tile.Lavender, Tile.Lavender, Tile.Lavender], { hardness: 0.25 }),
   def(Block.Mint, 'Menta', [Tile.Mint, Tile.Mint, Tile.Mint], { hardness: 0.25 }),
   def(Block.Chocolate, 'Chocolate', [Tile.Chocolate, Tile.Chocolate, Tile.Chocolate], { hardness: 0.25 }),
+  def(Block.Painting, 'Quadro rosa', [Tile.Yellow, Tile.Pink, Tile.Brown], {
+    hardness: Infinity,
+    drop: null,
+  }),
+  def(Block.Hay, 'Feno', [Tile.Yellow, Tile.Yellow, Tile.Brown], { hardness: 0.2 }),
+  def(Block.GoldenCarrot, 'Cenoura dourada', [Tile.Yellow, Tile.GoldOre, Tile.Yellow], {
+    opaque: false,
+    solid: false,
+    hardness: 0.08,
+  }),
 ].sort((a, b) => a.id - b.id);
 
 const BLOCK_COUNT = BLOCKS.length;
@@ -383,6 +396,10 @@ export function isCarrotItem(id: number): boolean {
   return id === Block.Carrot;
 }
 
+export function isGoldenCarrot(id: number): boolean {
+  return id === Block.GoldenCarrot;
+}
+
 export function isCarrotCrop(id: number): boolean {
   return id === Block.CarrotSprout || id === Block.CarrotGrowing || id === Block.CarrotRipe;
 }
@@ -401,7 +418,7 @@ export function isSoil(id: number): boolean {
 /** Whole blocks a child can recolor. Fluids, crops and unbreakable stone stay as they are. */
 export function canPaintBlock(id: number): boolean {
   if (id === Block.Air || id === Block.Bedrock || id === Block.Water || id === Block.Lava) return false;
-  if (isCarrotCrop(id) || isCarrotItem(id)) return false;
+  if (isCarrotCrop(id) || isCarrotItem(id) || isGoldenCarrot(id) || id === Block.Painting) return false;
   const def = getBlockDef(id);
   return def.solid && Number.isFinite(def.hardness);
 }

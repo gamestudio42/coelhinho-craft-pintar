@@ -37,6 +37,18 @@ The words on screen are simple Brazilian Portuguese.
 
 The bunny follows you from the start. Falling, lava, and the void do not hurt.
 
+### Secret base
+
+In **Mundo**, a yellow path starts beside where you appear. Follow it to a pink picture on a wooden wall. Right-click the picture: the wall opens, and a stair goes down to a room with torches, a bed, a chest and a hay corner for the bunny. Right-click the picture again to close it.
+
+### Village
+
+Walk north-east from the start, about fifty blocks, until you see three little houses. The neighbours walk in the square. The iron golem is big and kind: every few seconds it offers a red flower to someone, and they hop. Nobody fights.
+
+### Golden carrot
+
+A gold cube sits on the yellow path, and another sits in the village square. They are rare. Select it, look at the bunny, and right-click. The bunny grows huge for 25 seconds, then shrinks back smoothly.
+
 | Action | Control |
 | --- | --- |
 | Walk | `W` `A` `S` `D` or arrows |
