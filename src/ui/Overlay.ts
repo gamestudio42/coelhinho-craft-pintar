@@ -7,6 +7,8 @@ export interface OverlayContent {
   secondary?: string;
   showControls?: boolean;
   showSettings?: boolean;
+  /** Huge play button for the title screen. */
+  layout?: 'play';
   onEscape?: () => void;
 }
 
@@ -115,6 +117,7 @@ export class Overlay {
     this.action = action;
     this.secondaryAction = secondaryAction ?? null;
     this.escapeAction = content.onEscape ?? secondaryAction ?? action;
+    this.root.classList.toggle('play-gate', content.layout === 'play');
     this.syncInputs();
     this.root.classList.remove('hidden');
     this.button.focus({ preventScroll: true });
@@ -127,11 +130,12 @@ export class Overlay {
     this.escapeAction = action;
   }
 
-  addAction(label: string, action: () => void, options: { icon?: string; description?: string; disabled?: boolean } = {}): void {
+  addAction(label: string, action: () => void, options: { icon?: string; description?: string; disabled?: boolean; quiet?: boolean } = {}): void {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
     button.disabled = options.disabled === true;
+    if (options.quiet) button.classList.add('menu-quiet');
     if (options.icon) {
       button.classList.add('menu-card');
       const icon = document.createElement('span'); icon.className = 'menu-icon';

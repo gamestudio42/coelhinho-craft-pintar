@@ -47,6 +47,8 @@ import { Block, isCarrotItem, isConsumable, isGoldenCarrot, isTorchFuel, isWater
 import { growCarrotsNear } from '../world/carrots.ts';
 import { SECRET, VILLAGE, groundY, toggleSecretDoor } from '../world/places.ts';
 import { PaintPalette } from '../ui/PaintPalette.ts';
+import { fillPlayTips, hideTips, PLAY_TIPS, tipsOpen, TIPS_STORAGE_KEY } from '../ui/PlayTips.ts';
+import { bindTouchControls } from '../ui/TouchControls.ts';
 import { ChunkManager } from '../world/ChunkManager.ts';
 import { OneBlock } from '../world/oneblock/OneBlock.ts';
 import { ISLAND_Y, VOID_KILL_Y, chestLoot, isOneBlockCell } from '../world/oneblock/phases.ts';
@@ -62,7 +64,7 @@ import { ENTRANCE_SPAWN } from '../world/arena.ts';
 import { pickGuideHint, shownFromSave } from '../player/Guide.ts';
 import { loadSave, loadPreviousSave, parseSave, saveRun, SAVE_VERSION, type SavedRun } from './Save.ts';
 import { SessionLog, type SessionMarkKind, type SessionPanelId } from './SessionLog.ts';
-import { loadSettings, QUALITY, type StoredSettings } from './Settings.ts';
+import { loadSettings, saveSettings, QUALITY, type StoredSettings } from './Settings.ts';
 import { albumCount, albumPanel, albumSections, buildFoundText, type AlbumSection } from '../ui/Album.ts';
 import { buildIdeaPanel, BUILD_IDEAS } from '../ui/BuildIdeas.ts';
 import { BuildWatcher, type RecognizedBuild } from '../world/builds.ts';
@@ -165,6 +167,8 @@ export class Game {
   private readonly hud: Hud;
   private readonly palette: PaintPalette;
   private readonly overlay = new Overlay();
+  private tipsOpen = true;
+  private touchRoot: HTMLElement | null = null;
   private readonly session = new SessionLog();
 
   private reducedMotion = false;
@@ -266,7 +270,7 @@ export class Game {
     this.palette.onChange = () => {
       this.interaction.paintMode = this.palette.mode;
       this.interaction.paintBlock = this.palette.color;
-      this.hud.showHint(this.palette.mode ? 'Botão direito pinta o bloco.' : 'Agora você constrói com blocos.', 2.4);
+      this.hud.showHint(this.palette.mode ? 'Direito pinta.' : 'Agora é construir.', 2.4);
     };
     this.combat.onHit = vulnerable => {
       this.hud.showHint(vulnerable ? 'Acertou! Ele está vulnerável!' : 'Acertou!', 0.7);
@@ -356,6 +360,7 @@ export class Game {
     };
 
     this.input = new Input(canvas);
+    this.prepareKidUi();
     this.input.onLockChange = (locked) => {
       if (locked) this.session?.record('pointer_lock', { ok: true });
       this.handleLockChange(locked);
@@ -518,30 +523,36 @@ export class Game {
   private showMenu(): void {
     this.state = 'menu';
     this.hud.setVisible(false);
-    if (!this.firstVisit) {
-      this.showWorldChoice();
-      return;
-    }
     this.overlay.show({
       title: 'Coelhinho Craft Pintar',
-      text: 'Pinte, construa e brinque com o coelhinho fofinho.',
-      button: '▶ Jogar', secondary: 'Outros modos', showControls: false, onEscape: () => {},
-    }, () => this.startQuickBuild(), () => this.showWorldChoice());
-    this.addMenuExtras();
+      text: 'Pinte e brinque com o coelhinho.',
+      button: 'JOGAR',
+      showControls: false,
+      layout: 'play',
+      onEscape: () => {},
+    }, () => this.playPeaceful());
+    this.overlay.addAction('Para adultos', () => this.showWorldChoice(), { quiet: true });
   }
 
-  /** No world saved in either mode: the first click should already be play. */
-  private get firstVisit(): boolean {
-    return !loadSave('adventure') && !loadSave('oneblock');
+  /** Continue the saved world, or start a new peaceful one. No mode list. */
+  private playPeaceful(): void {
+    const save = loadSave('adventure');
+    if (save) {
+      this.applySave(save);
+      this.player.peaceful = true;
+      this.startPlaying();
+      return;
+    }
+    this.newGame('adventure');
   }
 
   private showWorldChoice(): void {
     this.overlay.show({
-      title: 'Coelhinho Craft Pintar',
-      text: 'Escolha um lugar para brincar. Cada um guarda uma partida.\nMundo: grama, árvores e cenouras. Ilha: um bloquinho para crescer.',
-      button: '🌳 Aventura', secondary: '🏝 Ilha', showControls: false, onEscape: () => {},
+      title: 'Para adultos',
+      text: 'Mundo ou ilha. Cada um guarda uma partida.',
+      button: '🌳 Mundo', secondary: '🏝 Ilha', showControls: false, onEscape: () => this.showMenu(),
     }, () => this.showModeMenu('adventure'), () => this.showModeMenu('oneblock'));
-    if (this.firstVisit) this.overlay.setBackAction(() => this.showMenu(), 'Voltar');
+    this.overlay.setBackAction(() => this.showMenu(), 'Voltar');
     this.addMenuExtras();
   }
 
@@ -592,8 +603,8 @@ export class Game {
     this.hud.setVisible(true);
     this.state = 'playing';
     this.session?.begin(this.sessionContext());
-    this.input.requestLock();
-    document.getElementById('mouse-prompt')!.classList.toggle('hidden', this.input.locked);
+    if (!this.input.coarse) this.input.requestLock();
+    document.getElementById('mouse-prompt')!.classList.toggle('hidden', this.input.locked || this.input.coarse);
     if (this.inEncounter || this.practice) {
       this.hud.hideHint();
     } else if (this.player.peaceful) {
@@ -624,10 +635,10 @@ export class Game {
         title: 'Vamos brincar?',
         onEscape: () => this.startPlaying(),
         text: this.player.peaceful
-          ? 'Continue pintando e brincando com o coelhinho.'
+          ? 'O coelhinho espera você.'
           : fighting ? 'Continue ou saia da batalha.' : this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked ? 'Seu bloco infinito está esperando.' : 'Continue construindo ou visite o chefão quando quiser.',
         button: 'Continuar',
-        secondary: 'Modos de jogo',
+        secondary: this.player.peaceful && !fighting ? 'Início' : 'Modos de jogo',
         showControls: false,
       },
       () => this.startPlaying(),
@@ -667,7 +678,6 @@ export class Game {
         button: 'Renascer',
         secondary: 'Modos de jogo',
         showControls: false,
-        showSettings: true,
       },
       () => {
         const flying = this.player.flying;
@@ -715,7 +725,6 @@ export class Game {
         button: 'Voltar à base',
         secondary: 'Continuar explorando',
         showControls: false,
-        showSettings: true,
       },
       () => { this.goHome(); this.startPlaying(); },
       () => this.startPlaying(),
@@ -750,7 +759,7 @@ export class Game {
     // Lock first, while the click is still a user gesture. Terrain preload
     // is synchronous and would otherwise make Chrome reject pointer lock.
     this.sfx.resume();
-    this.input.requestLock();
+    if (!this.input.coarse) this.input.requestLock();
 
     this.pendingDeath = false;
     this.elapsed = 0;
@@ -920,18 +929,24 @@ export class Game {
   }
 
   private handleLockChange(locked: boolean): void {
-    document.getElementById('mouse-prompt')!.classList.toggle('hidden', locked || this.state !== 'playing');
+    document.getElementById('mouse-prompt')!.classList.toggle('hidden', locked || this.input.coarse || this.state !== 'playing');
     if (locked && this.state !== 'playing') { this.input.releaseLock(); return; }
-    if (!locked && this.state === 'playing') this.pause();
+    if (!locked && this.state === 'playing' && !this.input.coarse) this.pause();
+  }
+
+  /** Mouse play waits for pointer lock. Touch play starts immediately. */
+  private get handsOn(): boolean {
+    return this.input.locked || this.input.coarse;
   }
 
   private tick(dt: number): void {
     if (this.state === 'playing') {
-      if (this.input.locked) this.updateWorld(dt);
+      if (this.handsOn) this.updateWorld(dt);
       else if (this.input.wasPressed('Escape')) this.pause();
     }
+    this.touchRoot?.classList.toggle('hidden', !(this.input.coarse && this.state === 'playing'));
 
-    this.sfx.setMusic(musicTheme(this.state === 'playing' && this.input.locked, this.inEncounter));
+    this.sfx.setMusic(musicTheme(this.state === 'playing' && this.handsOn, this.inEncounter));
     this.sfx.updateMusic();
     this.updateAtmosphere(dt);
     this.renderer.render(this.scene, this.camera);
@@ -1089,7 +1104,11 @@ export class Game {
     );
     this.viewModel.setPlates(this.player.plates);
     this.hud.setSeed(this.seed);
-    setText('carrot-count', `Cenouras: ${this.player.inventory.count(Block.Carrot)}`);
+    setText('carrot-count', `🥕 ${this.player.inventory.count(Block.Carrot)}`);
+    document.getElementById('play-tips')?.classList.toggle(
+      'hidden',
+      !(this.tipsOpen && this.player.peaceful && this.state === 'playing' && !this.inEncounter && !this.practice),
+    );
     const oneBlockMark = this.player.peaceful
       ? `${this.oneBlock.label} · ilha para pintar`
       : !this.oneBlock.ruinUnlocked
@@ -1733,6 +1752,10 @@ export class Game {
       return;
     }
     const fighting = this.inEncounter;
+    if (this.player.peaceful && !fighting) {
+      this.addKidPauseActions();
+      return;
+    }
     if (fighting) {
       this.overlay.addAction('Sair da batalha', () => {
         this.session?.record('encounter', { action: 'leave' });
@@ -1752,9 +1775,50 @@ export class Game {
     this.overlay.addAction('Registro da sessão', () => this.showSessionPanel());
   }
 
+  /** Few big pictures. The long settings stay behind Para adultos. */
+  private addKidPauseActions(): void {
+    this.overlay.addAction('Blocos', () => {
+      if (this.player.creative) this.openCatalog();
+      else this.showBuildingTools();
+    }, { icon: '🧱', description: 'Escolher' });
+    this.overlay.addAction('Casa', () => this.showHomeMenu(), { icon: '🏠', description: 'Voltar' });
+    const withMe = this.petFollowing;
+    this.overlay.addAction(withMe ? 'Junto' : 'Espera', () => {
+      this.petFollowing = !this.petFollowing;
+      this.showPaused();
+    }, { icon: '🐰', description: withMe ? 'O coelhinho vem' : 'O coelhinho fica' });
+    this.overlay.addAction('Ajuda', () => this.showHelp(), { icon: '❓', description: 'Como brincar' });
+    this.overlay.addAction('Som', () => this.showKidSound(), { icon: '🔊' });
+    this.overlay.addAction('Para adultos', () => this.showMoreOptions(), { quiet: true });
+  }
+
+  private showKidSound(): void {
+    this.stopForPanel();
+    const settings = loadSettings();
+    this.overlay.show({
+      title: 'Som',
+      text: 'Toque para ligar ou desligar.',
+      button: 'Voltar',
+      showControls: false,
+      onEscape: () => this.showPaused(),
+    }, () => this.showPaused());
+    this.overlay.addAction(settings.music ? 'Música ligada' : 'Música desligada', () => {
+      const next = { ...loadSettings(), music: !loadSettings().music };
+      saveSettings(next);
+      this.applySettings(next);
+      this.showKidSound();
+    }, { icon: '🎵' });
+    this.overlay.addAction(settings.muted ? 'Som desligado' : 'Som ligado', () => {
+      const next = { ...loadSettings(), muted: !loadSettings().muted };
+      saveSettings(next);
+      this.applySettings(next);
+      this.showKidSound();
+    }, { icon: '🔊' });
+  }
+
   private showBuildingTools(): void {
     this.stopForPanel();
-    this.overlay.show({ title: this.player.creative ? 'Vamos construir!' : 'Mochila e criação', text: this.player.creative ? 'O contorno verde mostra onde colocar. Z desfaz; Y refaz.' : 'Escolha seus materiais ou crie itens.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: this.player.creative ? 'Blocos' : 'Mochila', text: this.player.creative ? 'Toque num bloco. Direito coloca.' : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     this.overlay.addAction(this.player.creative ? 'Escolher blocos' : 'Abrir mochila', () => this.openCatalog(), { icon: '🧱' });
     if (this.player.creative) {
       this.overlay.addAction('Ideias para construir', () => this.showBuildIdeas(), { icon: '🏰' });
@@ -1780,7 +1844,7 @@ export class Game {
   private showHomeMenu(): void {
     this.logPanel('home');
     this.stopForPanel();
-    this.overlay.show({ title: 'Minha base', text: 'Volte para casa ou escolha um novo lugar para ela.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: 'Casa', text: 'Volte ou marque onde você está.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     this.overlay.addAction('Voltar à base', () => { this.goHome(); this.startPlaying(); }, { icon: '🏠' });
     this.overlay.addAction('Marcar minha base', () => this.markHome(), { icon: '📍', description: 'Usar o chão onde estou' });
   }
@@ -1797,8 +1861,14 @@ export class Game {
   private showMoreOptions(): void {
     this.stopForPanel();
     const fighting = this.inEncounter || Boolean(this.practice);
-    this.overlay.show({ title: 'Mais opções', text: 'Ajuste o jogo e cuide da sua partida.', button: 'Voltar à pausa', secondary: 'Continuar jogo', showSettings: true, showControls: false },
-      () => this.showPaused(), () => this.startPlaying());
+    this.overlay.show({
+      title: this.player.peaceful ? 'Para adultos' : 'Mais opções',
+      text: this.player.peaceful ? 'Ajustes e a partida salva.' : 'Ajuste o jogo e cuide da sua partida.',
+      button: 'Voltar à pausa',
+      secondary: 'Continuar jogo',
+      showSettings: true,
+      showControls: false,
+    }, () => this.showPaused(), () => this.startPlaying());
     if (!fighting) {
       if (this.mode === 'adventure') this.overlay.addAction(this.player.creative ? 'Explorar o mundo' : 'Construção livre ∞', () => {
         if (this.player.creative) this.goHome();
@@ -1811,13 +1881,19 @@ export class Game {
     if (!fighting && loadPreviousSave(this.mode)) this.overlay.addAction('Recuperar cópia anterior', () => this.confirmRecovery(this.mode));
     this.overlay.addAction('Exportar mundo', () => this.exportWorld());
     if (!fighting) this.overlay.addAction('Importar mundo', () => this.importWorld());
+    this.overlay.addAction(this.session?.enabled ? 'Registro ligado' : 'Registrar esta partida', () => {
+      if (this.session?.enabled) this.session?.stop();
+      else this.session?.enable();
+      this.updateSessionBanner();
+      this.showMoreOptions();
+    }, { icon: '📋' });
   }
 
   private openCatalog(category = '🌳 Natureza'): void {
     this.logPanel('catalog');
     this.stopForPanel();
     const creative = this.player.creative;
-    this.overlay.show({ title: creative ? 'Escolha um bloco' : 'Sua mochila', text: creative ? 'Escolha uma figura. Depois, use o botão direito para colocar e o esquerdo para remover.' : 'Os materiais que não couberam na barra ficam aqui. Escolha um para usar no espaço selecionado.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: creative ? 'Blocos' : 'Mochila', text: creative ? 'Toque num bloco. Direito coloca. Esquerdo tira.' : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     if (creative) {
       for (const group of Object.keys(CATALOG_GROUPS)) this.overlay.addAction(group, () => this.openCatalog(group));
       const blocks = [...(CATALOG_GROUPS[category] ?? [])];
@@ -2035,6 +2111,27 @@ export class Game {
   private showHelp(): void {
     this.logPanel('help');
     this.stopForPanel();
+    if (this.player.peaceful && !this.inEncounter && !this.practice) {
+      this.overlay.show({
+        title: 'Como brincar',
+        text: 'Quatro jeitos.',
+        button: 'Voltar ao jogo',
+        secondary: 'Menu',
+        showControls: false,
+      }, () => this.startPlaying(), () => this.showPaused());
+      const list = document.createElement('div');
+      list.className = 'tip-list';
+      for (const tip of PLAY_TIPS) {
+        const card = document.createElement('p');
+        card.className = 'tip-card';
+        card.textContent = `${tip.icon} ${tip.title}: ${tip.text}`;
+        list.append(card);
+      }
+      this.overlay.addContent(list);
+      this.overlay.addAction('Ver dicas', () => { this.revealTips(); this.startPlaying(); }, { icon: '👀' });
+      this.overlay.addAction('Para adultos', () => this.showAdvancedHelp(), { quiet: true });
+      return;
+    }
     const firstSteps = this.mode === 'oneblock'
       ? '1. Olhe para baixo: o bloco infinito está sob seus pés.\n2. Segure o botão esquerdo para quebrá-lo.\n3. Escolha terra na barra e use o direito para ampliar a ilha.\n4. Um baú ao lado abre com o botão direito.'
       : this.player.creative
@@ -2051,6 +2148,30 @@ export class Game {
       this.overlay.addAction('Pular tutorial', () => { this.tutorialDone = true; this.buildLesson = 0; this.startPlaying(); });
     }
     this.overlay.addAction('Mais controles e receitas', () => this.showAdvancedHelp());
+  }
+
+  private prepareKidUi(): void {
+    const list = document.getElementById('play-tips-list');
+    if (list) fillPlayTips(list);
+    document.getElementById('play-tips-close')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.dismissTips();
+    });
+    this.touchRoot = document.getElementById('touch-controls');
+    if (this.touchRoot) bindTouchControls(this.input, this.touchRoot);
+    try { this.tipsOpen = tipsOpen(globalThis.localStorage); } catch { this.tipsOpen = true; }
+    try { this.input.coarse = window.matchMedia('(pointer: coarse)').matches; } catch { /* mouse play */ }
+  }
+
+  private revealTips(): void {
+    this.tipsOpen = true;
+    try { globalThis.localStorage.removeItem(TIPS_STORAGE_KEY); } catch { /* ignore */ }
+  }
+
+  private dismissTips(): void {
+    this.tipsOpen = false;
+    try { hideTips(globalThis.localStorage); } catch { /* ignore */ }
   }
 
   private showAdvancedHelp(): void {
