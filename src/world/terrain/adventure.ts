@@ -23,6 +23,7 @@ import {
 import { groveFloorY, stampGrove } from '../grove.ts';
 import { Block } from '../blocks.ts';
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT } from '../Chunk.ts';
+import { stampFriendlyPlaces } from '../places.ts';
 
 export const SEA_LEVEL = 60;
 const LAVA_LEVEL = 8;
@@ -67,6 +68,12 @@ export class AdventureGenerator {
     if (chunkTouchesCache(chunk.cx, chunk.cz)) this.buildCache(chunk, baseX, baseZ);
     if (chunkTouchesRuin(chunk.cx, chunk.cz)) this.buildRuin(chunk, baseX, baseZ);
     if (chunkTouchesGrove(chunk.cx, chunk.cz)) this.buildGrove(chunk, baseX, baseZ);
+    stampFriendlyPlaces(
+      (x, y, z, id) => this.setWorld(chunk, baseX, baseZ, x, y, z, id),
+      (x, z) => this.surfaceHeight(x, z),
+      chunk.cx,
+      chunk.cz,
+    );
 
     chunk.generated = true;
   }

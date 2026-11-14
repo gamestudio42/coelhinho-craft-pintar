@@ -34,6 +34,18 @@
 
 O coelhinho fofinho segue você o tempo todo.
 
+### Base secreta
+
+No **Mundo**, perto de onde você aparece, tem um caminho amarelo. Siga ele até o quadro rosa na parede de madeira. Clique no quadro com o botão direito: a parede abre e uma escada desce. Embaixo tem tochas, uma cama, um baú e um cantinho de feno para o coelhinho. Clique no quadro de novo para fechar.
+
+### Vila
+
+Ande bastante para a frente e para o lado, até ver três casinhas. Os aldeões passeiam na praça. O golem de ferro é grande e bonzinho: de vez em quando ele dá uma flor vermelha e o aldeão pula. Ninguém briga.
+
+### Cenoura dourada
+
+Um cubo dourado está no caminho amarelo. Outro está na praça da vila. É raro. Escolha ele na barra, olhe para o coelhinho e clique com o botão direito. O coelhinho fica gigante por um tempinho e depois volta ao tamanho normal.
+
 | Tecla | O que faz |
 | --- | --- |
 | `W` `A` `S` `D` ou setas | Andar |

@@ -18,6 +18,7 @@ import { lessonCaption, updateBuildLesson } from '../ui/BuildLesson.ts';
 import { BlockInteraction } from '../player/BlockInteraction.ts';
 import { HAMMER, HammerTier, PLATE_COST, PLATES, PlateTier, UPGRADE_COST } from '../player/Hammer.ts';
 import { Pet, type PetHome } from '../entities/Pet.ts';
+import { IronGolem, Villager } from '../entities/VillageFolk.ts';
 import { Player, PLAYER_REACH, SWING_DURATION } from '../player/Player.ts';
 import { GENTLE_AIM_MARGIN, PlayerCombat } from '../player/PlayerCombat.ts';
 import { CameraView, isMoving, PlayerController } from '../player/PlayerController.ts';
@@ -42,8 +43,9 @@ import {
   chunkTouchesGrove,
   chunkTouchesRuin,
 } from '../world/arena.ts';
-import { Block, isCarrotItem, isConsumable, isTorchFuel, isWater } from '../world/blocks.ts';
+import { Block, isCarrotItem, isConsumable, isGoldenCarrot, isTorchFuel, isWater } from '../world/blocks.ts';
 import { growCarrotsNear } from '../world/carrots.ts';
+import { SECRET, VILLAGE, groundY, toggleSecretDoor } from '../world/places.ts';
 import { PaintPalette } from '../ui/PaintPalette.ts';
 import { ChunkManager } from '../world/ChunkManager.ts';
 import { OneBlock } from '../world/oneblock/OneBlock.ts';
@@ -191,6 +193,9 @@ export class Game {
   private readonly tossHold = new HoldTrigger(TOSS_HOLD_SECONDS);
   private readonly hitStop = new HitStop();
   private carrotClock = 0;
+  private villageReady = false;
+  private readonly villagers: Villager[] = [];
+  private golem: IronGolem | null = null;
   private lastBossState: string | null = null;
   private hintedWall = false;
   private readonly context: EntityContext;
@@ -385,6 +390,7 @@ export class Game {
       if (isSolid(edit.after)) this.noticeBuild(edit.x, edit.y, edit.z);
     };
     this.interaction.onEntityUse = () => this.tapPet();
+    this.interaction.onPaintingUsed = () => this.useSecretDoor();
     this.player.inventory.onOverflow = () => this.hud.showHint('Barra cheia: material guardado na mochila. Aperte B.', 4);
     this.oneBlock.onWarning = () => this.hud.showHint('⚠ Um monstrinho está chegando! Afaste-se do bloco.', 3);
     window.addEventListener('pagehide', () => {
@@ -591,7 +597,7 @@ export class Game {
     if (this.inEncounter || this.practice) {
       this.hud.hideHint();
     } else if (this.player.peaceful) {
-      this.hud.showHint('Pinte as paredes, construa e dê cenoura ao coelhinho.', 5);
+      this.hud.showHint('Siga o caminho amarelo até o quadro rosa.', 5);
     } else if (this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked) {
       this.hud.showHint('Use o direito para colocar terra e ampliar a ilha.', 5);
     } else if (this.player.creative) {
@@ -1014,6 +1020,7 @@ export class Game {
     this.ruin.update();
     this.grove.update();
     this.tendPet();
+    this.tendVillage();
     const settled = this.builds.update(this.world, dt);
     if (settled) this.celebrateBuild(settled);
     if (this.world.generator.shrineUnlocked && !this.player.creative) this.arena.tryDiscover(this.player);
@@ -1176,6 +1183,7 @@ export class Game {
     else if (!this.player.peaceful && this.combat.aimed) showActionCue({ icon: '🔨', key: 'Esquerdo', text: 'Bater', kind: 'attack' });
     else if (!this.player.peaceful && (this.interaction.aimingAltar || this.interaction.aimingStatue || this.interaction.aimingBeacon)) showActionCue({ icon: '👑', key: 'Direito', text: 'Visitar chefão', kind: 'build' });
     else if (this.palette.mode && target) showActionCue({ icon: '🎨', key: 'Direito', text: 'Pintar este bloco', kind: 'build' });
+    else if (isGoldenCarrot(this.player.inventory.selectedSlot.block ?? -1)) showActionCue({ icon: '✨', key: 'Direito', text: 'Dar ao coelhinho', kind: 'build' });
     else if (isCarrotItem(this.player.inventory.selectedSlot.block ?? -1)) showActionCue({ icon: '🥕', key: 'Direito', text: 'Plantar ou dar ao coelhinho', kind: 'build' });
     else if (this.interaction.aimingBed) showActionCue({ icon: '☾', key: 'Direito', text: 'Descansar', kind: 'build' });
     else if (this.interaction.aimingChest) showActionCue({ icon: '📦', key: 'Direito', text: 'Abrir baú', kind: 'build' });
@@ -1911,21 +1919,51 @@ export class Game {
     this.petFollowing = true;
   }
 
+  private useSecretDoor(): void {
+    if (this.mode !== 'adventure') return;
+    const floor = groundY(this.world.generator.surfaceHeight(SECRET.doorX, SECRET.doorZ));
+    const state = toggleSecretDoor(this.world, floor);
+    const text = state === 'open' ? 'A porta secreta abriu!' : 'A porta secreta fechou.';
+    this.hud.showHint(text, 2.4);
+    this.narrator?.say(text);
+    this.saveSoon = true;
+  }
+
+  private tendVillage(): void {
+    if (!this.player.peaceful || this.mode !== 'adventure' || this.villageReady) return;
+    if (!this.world.getChunk(VILLAGE.x >> 4, VILLAGE.z >> 4)) return;
+    this.villageReady = true;
+    const y = groundY(this.world.generator.surfaceHeight(VILLAGE.x, VILLAGE.z)) + 1;
+    const spots = [
+      [VILLAGE.x - 2, VILLAGE.z],
+      [VILLAGE.x + 2, VILLAGE.z],
+      [VILLAGE.x, VILLAGE.z + 2],
+      [VILLAGE.x, VILLAGE.z - 2],
+    ];
+    for (const [x, z] of spots) this.villagers.push(this.entities.add(new Villager(x + 0.5, y, z + 0.5)));
+    this.golem = this.entities.add(new IronGolem(VILLAGE.x + 0.5, y, VILLAGE.z + 0.5));
+    this.golem.friends = this.villagers;
+  }
+
   private tryFeedPet(pet: Pet): boolean {
     const inventory = this.player.inventory;
     if (!inventory) return false;
     const slot = inventory.selectedSlot;
-    if (!slot || !isCarrotItem(slot.block ?? -1) || slot.count <= 0) return false;
+    if (!slot || slot.count <= 0) return false;
+    const block = slot.block ?? -1;
+    const golden = isGoldenCarrot(block);
+    if (!golden && !isCarrotItem(block)) return false;
     this.player.inventory.takeSelected();
-    pet.feed();
-    const text = 'Nhac! O coelhinho adorou a cenoura!';
+    if (golden) pet.growBig();
+    else pet.feed();
+    const text = golden ? 'Uau! O coelhinho ficou gigante!' : 'Nhac! O coelhinho adorou a cenoura!';
     this.hud.showHint(text, 2.8);
     this.narrator?.say(text);
     this.sfx.play('eat');
     this.player.startSwing();
     this.particles.burst(pet.position, {
       count: 14,
-      color: 0xff8ad4,
+      color: golden ? 0xffd15a : 0xff8ad4,
       speed: 2.2,
       spread: 0.7,
       life: 0.7,
@@ -1945,6 +1983,12 @@ export class Game {
       this.pet = this.entities.add(new Pet(home));
     }
     this.pet.following = this.petFollowing && !this.inEncounter && !this.practice;
+    if (this.pet.justShrunk) {
+      this.pet.justShrunk = false;
+      const text = 'O coelhinho voltou ao tamanho normal.';
+      this.hud.showHint(text, 2.4);
+      this.narrator?.say(text);
+    }
   }
 
   private tapPet(): boolean {
@@ -1997,7 +2041,7 @@ export class Game {
         ? '1. Aperte B e escolha um bloco.\n2. Mire no chão e use o direito para colocar.\n3. Clique com o esquerdo para remover.'
         : '1. Use o esquerdo para pegar blocos.\n2. Use o direito para colocar ou usar.\n3. Aperte B para abrir a mochila.';
     const bossTip = this.player.peaceful
-      ? 'P pinta. O botão direito pinta o bloco inteiro. Com uma cenoura, plante na terra ou dê ao coelhinho.'
+      ? 'P pinta. Siga o caminho amarelo e clique no quadro rosa. A cenoura dourada deixa o coelhinho gigante.'
       : this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked
       ? `O Sentinela aparece depois de ${this.oneBlock.ruinAt} blocos quebrados.`
       : 'Para o chefão: Esc > Chefões > Visitar o Sentinela. Pule as ondas e bata quando aparecer BATA AGORA!';

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import { Health } from '../combat/Health.ts';
 import { Entity, type EntityContext } from './Entity.ts';
+import { GIANT_SCALE, GIANT_SECONDS } from '../world/places.ts';
 import { steerAround, walkToward } from './boss/steer.ts';
 
 const SPEED = 3.8;
@@ -36,6 +37,11 @@ export class Pet extends Entity {
   private strayTime = 0;
   /** Seconds left of the happy hop after a carrot. */
   private nibble = 0;
+  /** Seconds left of the giant size after a golden carrot. */
+  giant = 0;
+  /** True for one check after the giant size finishes. */
+  justShrunk = false;
+  private visualScale = 1;
   private readonly body3D = new THREE.Group();
   private readonly legs: THREE.Mesh[] = [];
   private readonly ears: THREE.Object3D[] = [];
@@ -70,7 +76,9 @@ export class Pet extends Entity {
     const dz = target.z - this.position.z;
     const distance = Math.hypot(dx, dz);
     if (this.following) this.settled = false;
-    else if (distance <= PET_HOME_RADIUS) this.settled = true;
+    // Height matters: standing on the fence is close to home on the map, but
+    // the bunny still has to hop down inside the pen.
+    else if (distance <= PET_HOME_RADIUS && Math.abs(this.position.y - this.home.y) < 0.75) this.settled = true;
     const returning = !this.following && !this.settled;
     this.strayTime = returning ? this.strayTime + dt : 0;
 
@@ -113,6 +121,7 @@ export class Pet extends Entity {
     const swing = speed > 0.2 ? Math.sin(context.elapsed * 14) * 0.5 : 0;
     this.legs.forEach((leg, i) => { leg.rotation.x = i % 3 === 0 ? swing : -swing; });
     if (this.nibble > 0) this.nibble = Math.max(0, this.nibble - dt);
+    this.tickGiant(dt);
     const hop = this.nibble > 0 ? Math.abs(Math.sin(context.elapsed * 16)) * 0.34 : 0;
     this.body3D.position.y = hop;
     const flop = this.nibble > 0 ? Math.sin(context.elapsed * 18) * 0.45 : 0;
@@ -124,6 +133,25 @@ export class Pet extends Entity {
   /** Happy hop and ear wiggle. The caller already spent the carrot. */
   feed(): void {
     this.nibble = 1.6;
+  }
+
+  /** Huge for a little while, then eases back to the usual size. */
+  growBig(): void {
+    this.giant = GIANT_SECONDS;
+    this.nibble = 1.6;
+    this.justShrunk = false;
+  }
+
+  private tickGiant(dt: number): void {
+    if (this.giant > 0) {
+      this.giant = Math.max(0, this.giant - dt);
+      if (this.giant === 0) this.justShrunk = true;
+    }
+    const shrink = this.giant > 0 && this.giant < 2;
+    const target = this.giant <= 0 ? 1 : shrink ? 1 + (GIANT_SCALE - 1) * (this.giant / 2) : GIANT_SCALE;
+    const step = 1 - Math.exp(-dt * 3.2);
+    this.visualScale += (target - this.visualScale) * step;
+    this.body3D.scale.setScalar(this.visualScale);
   }
 
   get nibbling(): boolean {
