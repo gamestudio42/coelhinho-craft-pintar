@@ -22,6 +22,15 @@ export interface PetHome {
   z: number;
 }
 
+export type PetKind = 'bunny' | 'cat' | 'dog';
+
+/** Short name a child hears. */
+export function petName(kind: PetKind): string {
+  if (kind === 'cat') return 'gatinho';
+  if (kind === 'dog') return 'cachorrinho';
+  return 'coelhinho';
+}
+
 /**
  * The companion that moves into the first recognised pen. It shares the
  * summons' walk and sidestep, sits on the neutral team and cannot be hurt.
@@ -42,12 +51,15 @@ export class Pet extends Entity {
   /** True for one check after the giant size finishes. */
   justShrunk = false;
   private visualScale = 1;
+  readonly kind: PetKind;
   private readonly body3D = new THREE.Group();
   private readonly legs: THREE.Mesh[] = [];
   private readonly ears: THREE.Object3D[] = [];
+  private tail: THREE.Object3D | null = null;
 
-  constructor(home: PetHome) {
+  constructor(home: PetHome, kind: PetKind = 'bunny') {
     super(0.7, 0.8, 'neutral', STEP_HEIGHT);
+    this.kind = kind;
     this.home = { ...home };
     this.position.set(home.x, home.y, home.z);
     this.wander = { x: home.x, z: home.z };
@@ -128,6 +140,8 @@ export class Pet extends Entity {
     this.ears.forEach((ear, index) => {
       ear.rotation.z = (index === 0 ? -0.08 : 0.08) + flop;
     });
+    if (this.tail && this.kind === 'dog') this.tail.rotation.y = Math.sin(context.elapsed * (this.nibble > 0 ? 16 : 7)) * 0.7;
+    if (this.tail && this.kind === 'cat') this.tail.rotation.z = 0.5 + Math.sin(context.elapsed * 2.2) * 0.12;
   }
 
   /** Happy hop and ear wiggle. The caller already spent the carrot. */
@@ -166,6 +180,18 @@ export class Pet extends Entity {
   }
 
   private buildModel(): void {
+    if (this.kind === 'cat') {
+      this.buildCat();
+      return;
+    }
+    if (this.kind === 'dog') {
+      this.buildDog();
+      return;
+    }
+    this.buildBunny();
+  }
+
+  private buildBunny(): void {
     const fur = new THREE.MeshLambertMaterial({ color: 0xfff7f2, flatShading: true });
     const inner = new THREE.MeshLambertMaterial({ color: 0xf7b7c8, flatShading: true });
     const noseMat = new THREE.MeshLambertMaterial({ color: 0xff8fab, flatShading: true });
@@ -202,6 +228,87 @@ export class Pet extends Entity {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.26, 0.12), fur);
       leg.geometry.translate(0, -0.13, 0);
       leg.position.set(x, 0.28, z);
+      this.legs.push(leg);
+      this.body3D.add(leg);
+    }
+    this.object3D.add(this.body3D);
+  }
+
+  private buildCat(): void {
+    const fur = new THREE.MeshLambertMaterial({ color: 0xf6b26b, flatShading: true });
+    const cream = new THREE.MeshLambertMaterial({ color: 0xfff3e4, flatShading: true });
+    const noseMat = new THREE.MeshLambertMaterial({ color: 0xe97878, flatShading: true });
+    const dark = new THREE.MeshBasicMaterial({ color: 0x2b1d24 });
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.36, 0.7), fur);
+    torso.position.y = 0.42;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.34, 0.38), fur);
+    head.position.set(0, 0.66, 0.36);
+    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.08), cream);
+    muzzle.position.set(0, 0.56, 0.56);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.05), noseMat);
+    nose.position.set(0, 0.58, 0.62);
+    const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.04), dark);
+    leftEye.position.set(-0.1, 0.7, 0.55);
+    const rightEye = leftEye.clone();
+    rightEye.position.x = 0.1;
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.1), fur);
+    tail.position.set(0, 0.72, -0.32);
+    tail.rotation.x = -0.4;
+    this.tail = tail;
+    this.body3D.add(torso, head, muzzle, nose, leftEye, rightEye, tail);
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.06), fur);
+      ear.position.set(side * 0.12, 0.92, 0.32);
+      ear.rotation.z = side * -0.2;
+      this.ears.push(ear);
+      this.body3D.add(ear);
+    }
+    for (const [x, z] of [[-0.14, 0.18], [0.14, 0.18], [-0.14, -0.2], [0.14, -0.2]]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.1), fur);
+      leg.geometry.translate(0, -0.11, 0);
+      leg.position.set(x, 0.24, z);
+      this.legs.push(leg);
+      this.body3D.add(leg);
+    }
+    this.object3D.add(this.body3D);
+  }
+
+  private buildDog(): void {
+    const fur = new THREE.MeshLambertMaterial({ color: 0xf3e2c4, flatShading: true });
+    const brown = new THREE.MeshLambertMaterial({ color: 0xb07a45, flatShading: true });
+    const noseMat = new THREE.MeshLambertMaterial({ color: 0x3a2a24, flatShading: true });
+    const dark = new THREE.MeshBasicMaterial({ color: 0x2b1d24 });
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.38, 0.74), fur);
+    torso.position.y = 0.44;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.36, 0.4), fur);
+    head.position.set(0, 0.68, 0.4);
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.16), fur);
+    snout.position.set(0, 0.58, 0.58);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.06), noseMat);
+    nose.position.set(0, 0.6, 0.68);
+    const spot = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.2), brown);
+    spot.position.set(0, 0.58, -0.1);
+    const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.08, 0.04), dark);
+    leftEye.position.set(-0.1, 0.74, 0.58);
+    const rightEye = leftEye.clone();
+    rightEye.position.x = 0.1;
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.34), brown);
+    tail.geometry.translate(0, 0, -0.16);
+    tail.position.set(0, 0.58, -0.38);
+    this.tail = tail;
+    this.body3D.add(torso, head, snout, nose, spot, leftEye, rightEye, tail);
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.28, 0.06), brown);
+      ear.geometry.translate(0, -0.12, 0);
+      ear.position.set(side * 0.18, 0.78, 0.36);
+      ear.rotation.z = side * 0.35;
+      this.ears.push(ear);
+      this.body3D.add(ear);
+    }
+    for (const [x, z] of [[-0.15, 0.2], [0.15, 0.2], [-0.15, -0.22], [0.15, -0.22]]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.24, 0.12), fur);
+      leg.geometry.translate(0, -0.12, 0);
+      leg.position.set(x, 0.26, z);
       this.legs.push(leg);
       this.body3D.add(leg);
     }

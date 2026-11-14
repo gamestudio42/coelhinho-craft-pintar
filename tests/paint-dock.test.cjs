@@ -41,6 +41,7 @@ function palette(coarse) {
     colors: element(),
     paint: element(),
     build: element(),
+    bucket: element(),
     dock: element(),
     sheet: element(),
     toggle: element(),
@@ -48,7 +49,7 @@ function palette(coarse) {
     backdrop: element(),
   };
   const paletteDock = new PaintPalette(
-    parts.colors, parts.paint, parts.build, parts.dock, parts.sheet, parts.toggle, parts.close, parts.backdrop,
+    parts.colors, parts.paint, parts.build, parts.bucket, parts.dock, parts.sheet, parts.toggle, parts.close, parts.backdrop,
   );
   global.document = previousDocument;
   globalThis.matchMedia = previousMatch;
@@ -107,4 +108,13 @@ test('a wide screen keeps the tray open, and choosing paint opens a closed tray'
   assert.equal(desk.palette.open, false, 'leaving paint does not pop the tray back open');
   desk.palette.setMode(true);
   assert.equal(desk.palette.open, true);
+
+  desk.bucket.click();
+  assert.equal(desk.palette.bucket, true);
+  assert.equal(desk.palette.mode, true);
+  desk.paint.click();
+  assert.equal(desk.palette.bucket, false);
+  assert.equal(desk.palette.mode, true);
+  desk.build.click();
+  assert.equal(desk.palette.mode, false);
 });

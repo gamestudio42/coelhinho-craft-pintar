@@ -10,9 +10,9 @@ export interface PlayTip {
 
 export const PLAY_TIPS: readonly PlayTip[] = [
   { id: 'build', icon: '🧱', title: 'Construir', text: 'Direito coloca.' },
-  { id: 'paint', icon: '🎨', title: 'Pintar', text: 'Toque em Pintar e na cor.' },
+  { id: 'paint', icon: '🎨', title: 'Pintar', text: 'Toque na cor ou no balde.' },
   { id: 'pick', icon: '🥕', title: 'Cenoura', text: 'Esquerdo pega.' },
-  { id: 'feed', icon: '🐰', title: 'Coelhinho', text: 'Olhe nele e use o direito.' },
+  { id: 'feed', icon: '🐰', title: 'Amiguinhos', text: 'Olhe neles e dê a cenoura.' },
 ];
 
 export function tipsOpen(storage: { getItem(key: string): string | null } | null): boolean {

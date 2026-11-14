@@ -64,7 +64,7 @@ test('a peaceful pause offers the child choices and keeps boss tools for a fight
   g.grove = { active: false };
   g.overlay = { addAction(label) { labels.push(label); } };
   g.addPlayActions();
-  assert.deepEqual(labels, ['Blocos', 'Casa', 'Junto', 'Ajuda', 'Som', 'Para adultos']);
+  assert.deepEqual(labels, ['Blocos', 'Casa', 'Junto', 'Gatinho', 'Cachorrinho', 'Ajuda', 'Som', 'Para adultos']);
 
   labels.length = 0;
   g.arena.active = true;

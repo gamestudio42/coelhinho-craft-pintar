@@ -852,7 +852,8 @@ kbd {
 }
 
 #mode-build,
-#mode-paint {
+#mode-paint,
+#mode-bucket {
   min-width: 140px;
   min-height: 58px;
   padding: 8px 18px;
@@ -865,7 +866,8 @@ kbd {
 }
 
 #mode-build.is-on,
-#mode-paint.is-on {
+#mode-paint.is-on,
+#mode-bucket.is-on {
   background: #ffb347;
   border-color: #243044;
 }
@@ -881,11 +883,21 @@ kbd {
   font: 800 20px/1 'Segoe UI', system-ui, sans-serif;
 }
 
+#paint-swatches {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
 #paint-colors {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .paint-color {
@@ -905,7 +917,7 @@ kbd {
 
 @media (max-width: 700px) {
   .paint-color { width: 44px; height: 44px; }
-  #mode-build, #mode-paint { min-width: 112px; min-height: 50px; font-size: 18px; }
+  #mode-build, #mode-paint, #mode-bucket { min-width: 112px; min-height: 50px; font-size: 18px; }
 }
 
 /* Phone: a short strip at the top. It stops above the stick (bottom 168 + 112) and the action buttons. */
@@ -949,7 +961,7 @@ kbd {
   .paint-color {
     flex: 0 0 44px;
   }
-  #mode-build, #mode-paint {
+  #mode-build, #mode-paint, #mode-bucket {
     min-width: 0;
     flex: 0 0 auto;
   }
@@ -961,17 +973,18 @@ kbd {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     grid-template-areas:
       "build paint close"
-      "count colors colors";
+      "bucket swatches swatches";
     align-items: center;
     column-gap: 6px;
   }
   #paint-toolbar { display: contents; }
   #mode-build { grid-area: build; }
   #mode-paint { grid-area: paint; }
+  #mode-bucket { grid-area: bucket; }
   #paint-close { grid-area: close; width: 52px; height: 52px; }
-  #carrot-count { grid-area: count; justify-self: start; }
-  #paint-colors { grid-area: colors; min-width: 0; }
-  #mode-build, #mode-paint {
+  #paint-swatches { grid-area: swatches; min-width: 0; }
+  #paint-colors { flex: 1 1 auto; }
+  #mode-build, #mode-paint, #mode-bucket {
     min-height: 48px;
     padding: 6px 8px;
     font-size: 16px;
@@ -984,9 +997,10 @@ kbd {
   #paint-close { align-self: center; flex: 0 0 48px; }
   #paint-toolbar { display: flex; flex: 0 0 auto; }
   #paint-colors { flex: 1 1 auto; min-width: 0; }
-  .paint-color { width: 40px; height: 40px; flex-basis: 40px; }
-  #mode-build, #mode-paint { min-height: 40px; padding: 4px 8px; font-size: 14px; }
-  #carrot-count { min-height: 40px; }
+  .paint-color { width: 44px; height: 44px; flex-basis: 44px; }
+  #mode-build, #mode-paint, #mode-bucket { min-height: 44px; padding: 4px 8px; font-size: 15px; }
+  #paint-swatches { flex: 1 1 auto; min-width: 0; }
+  #carrot-count { min-height: 44px; }
 }
 
 /* Title screen: one huge play button. Adult tools stay small. */

@@ -29,14 +29,14 @@
 1. Abra o jogo e toque no botão grande **JOGAR**. Ele entra direto no mundo pacífico, com o coelhinho.
 2. No alto da tela, quatro dicas com desenho: construir, pintar, pegar cenoura e dar a cenoura. O ✕ fecha. No menu, **Ajuda** mostra de novo.
 3. **Construir:** botão direito (ou o botão 🧱 no toque) coloca. Botão esquerdo (ou 🥕) tira.
-4. **Pintar:** toque em **🎨** para abrir as cores, depois em **Pintar** e numa cor. No celular, o ✕ ou um toque fora fecha. O círculo de andar e os botões de pegar e colocar ficam livres.
-5. Ache cenouras na grama. Olhe para o coelhinho branco e dê a cenoura. Ele pula de alegria.
+4. **Pintar:** toque em **🎨** para abrir as cores, depois em **Pintar** e numa cor. **Balde** pinta de uma vez os blocos iguais que se encostam. No celular, o ✕ ou um toque fora fecha. O círculo de andar e os botões de pegar e colocar ficam livres.
+5. Ache cenouras na grama. Olhe para o coelhinho, o gatinho ou o cachorrinho e dê a cenoura. Eles pulam de alegria.
 
 No celular, arraste o círculo da esquerda para andar e a tela para olhar. No computador, o mouse olha depois do clique.
 
-**Esc** abre a pausa: Blocos, Casa, o coelhinho (junto ou espera), Ajuda e Som. **Para adultos** guarda som avançado, ilha, construir sem limite, importar e exportar. Nada disso some: só fica fora do caminho da criança.
+**Esc** abre a pausa: Blocos, Casa, o coelhinho, o gatinho e o cachorrinho (junto ou espera), Ajuda e Som. **Para adultos** guarda som avançado, ilha, construir sem limite, importar e exportar. Nada disso some: só fica fora do caminho da criança.
 
-O coelhinho fofinho segue você o tempo todo.
+O coelhinho, o gatinho e o cachorrinho são pacíficos e seguem você. De vez em quando cai uma chuvinha leve, as cenouras crescem mais rápido, e depois aparece um arco-íris.
 
 ### Base secreta
 
