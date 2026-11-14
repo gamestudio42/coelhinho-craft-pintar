@@ -40,14 +40,21 @@ function menuGame() {
   const g = Object.create(Game.prototype);
   const calls = [];
   g.hud = { setVisible() {} };
+  g.player = { peaceful: true };
   g.overlay = {
-    show(content, primary, secondary) { Object.assign(this, { content, primary, secondary, back: null }); },
-    addAction() {},
+    actions: new Map(),
+    show(content, primary, secondary) {
+      Object.assign(this, { content, primary, secondary, back: null });
+      this.actions = new Map();
+    },
+    addAction(label, fn) { this.actions.set(label, fn); },
     setBackAction(action) { this.back = action; },
   };
   g.newGame = (mode, pace) => calls.push(['new', mode, pace]);
   g.setCreative = (on) => calls.push(['creative', on]);
   g.openCatalog = () => calls.push(['catalog']);
+  g.applySave = () => calls.push(['load']);
+  g.startPlaying = () => calls.push(['play']);
   return { g, calls };
 }
 
@@ -128,30 +135,41 @@ test('a Q drop needs a deliberate hold and a short tap only reports itself', () 
   assert.equal(tap.update(false, DT), null);
 });
 
-test('a first visit plays straight into free building and OneBlock starts on the short pace', () => {
+test('JOGAR starts the peaceful world, and adults open the mode list', () => {
   storage();
   const { g, calls } = menuGame();
   g.showMenu();
-  assert.equal(g.overlay.content.button, '▶ Jogar');
+  assert.equal(g.overlay.content.button, 'JOGAR');
+  assert.equal(g.overlay.content.layout, 'play');
   g.overlay.primary();
-  assert.deepEqual(calls, [['new', 'adventure', undefined], ['creative', true], ['catalog']]);
+  assert.deepEqual(calls, [['new', 'adventure', undefined]]);
 
-  g.overlay.secondary();
-  assert.equal(g.overlay.content.button, '🌳 Aventura');
-  assert.equal(typeof g.overlay.back, 'function', 'the mode list can go back to the quick start');
+  g.overlay.actions.get('Para adultos')();
+  assert.equal(g.overlay.content.button, '🌳 Mundo');
+  assert.equal(typeof g.overlay.back, 'function');
 
   calls.length = 0;
   g.chooseStyle('oneblock');
   assert.deepEqual(calls, [['new', 'oneblock', 'quick']]);
 });
 
-test('a returning player keeps the world list as the main menu', () => {
+test('JOGAR continues a saved world and a saved island stays behind Para adultos', () => {
+  storage();
+  saveRun(savedRun('adventure'));
+  const { g, calls } = menuGame();
+  g.showMenu();
+  g.overlay.primary();
+  assert.deepEqual(calls, [['load'], ['play']]);
+
   storage();
   saveRun(savedRun('oneblock'));
-  const { g } = menuGame();
-  g.showMenu();
-  assert.equal(g.overlay.content.button, '🌳 Aventura');
-  assert.equal(g.overlay.back, null);
+  const again = menuGame();
+  again.g.showMenu();
+  assert.equal(again.g.overlay.content.button, 'JOGAR');
+  again.g.overlay.primary();
+  assert.deepEqual(again.calls, [['new', 'adventure', undefined]]);
+  again.g.overlay.actions.get('Para adultos')();
+  assert.equal(again.g.overlay.content.button, '🌳 Mundo');
 });
 
 test('free play HUD keeps only the objective and hint once the lesson is over', () => {
@@ -159,6 +177,7 @@ test('free play HUD keeps only the objective and hint once the lesson is over', 
   assert.deepEqual(hudChrome(base), { phase: '', playHelp: '', flight: '✈ F: voar' });
   assert.equal(hudChrome({ ...base, flying: true }).flight, '✈ Shift desce · F pousa');
   assert.notEqual(hudChrome({ ...base, tutorialDone: false }).playHelp, '');
+  assert.equal(hudChrome({ ...base, peaceful: true, tutorialDone: false }).playHelp, '');
 
   const survival = { ...base, creative: false };
   assert.notEqual(hudChrome({ ...survival, elapsed: PLAY_HELP_SECONDS - 1 }).playHelp, '');
