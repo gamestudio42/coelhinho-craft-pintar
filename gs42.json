@@ -1,11 +1,11 @@
 {
-  "title": "MineBoss",
+  "title": "Coelhinho Craft Pintar",
   "tagline": {
-    "en": "A block adventure in the browser. Build, explore, fight optional bosses.",
-    "pt": "Aventura de blocos no navegador. Construa, explore e lute com chefões opcionais.",
-    "es": "Una aventura de bloques en el navegador. Construye, explora y lucha contra jefes opcionales.",
-    "fr": "Une aventure de blocs dans le navigateur. Construisez, explorez, affrontez des boss optionnels.",
-    "de": "Ein Block-Abenteuer im Browser. Bauen, erkunden, optionale Bosse bekämpfen."
+    "en": "Paint blocks, build, and play with a fluffy bunny. No monsters.",
+    "pt": "Pinte blocos, construa e brinque com um coelhinho fofinho. Sem monstros.",
+    "es": "Pinta bloques, construye y juega con un conejito. Sin monstruos.",
+    "fr": "Peins des blocs, construis et joue avec un petit lapin. Sans monstres.",
+    "de": "Male Blöcke an, baue und spiel mit einem Häschen. Ohne Monster."
   },
   "cover": "docs/readme/aventura.png",
   "genre": "voxel-sandbox",

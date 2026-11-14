@@ -291,6 +291,21 @@ const PAINTERS: Record<Tile, Painter> = {
   [Tile.Chest]: chestFace,
   [Tile.BeaconTrophy]: emblem([186, 214, 96], false),
   [Tile.BeaconLantern]: combine(fill([92, 122, 64], 10), emblem([214, 230, 120], false)),
+  [Tile.Black]: fill([38, 38, 42], 8),
+  [Tile.Gray]: fill([148, 150, 156], 8),
+  [Tile.Brown]: fill([140, 86, 48], 8),
+  [Tile.LightBlue]: fill([126, 196, 240], 8),
+  [Tile.Lime]: fill([154, 214, 72], 8),
+  [Tile.Cyan]: fill([64, 210, 214], 8),
+  [Tile.Magenta]: fill([214, 72, 168], 8),
+  [Tile.Peach]: fill([255, 186, 148], 8),
+  [Tile.Cream]: fill([255, 236, 196], 8),
+  [Tile.Navy]: fill([36, 64, 140], 8),
+  [Tile.Teal]: fill([32, 150, 132], 8),
+  [Tile.Coral]: fill([255, 112, 96], 8),
+  [Tile.Lavender]: fill([186, 160, 240], 8),
+  [Tile.Mint]: fill([168, 240, 196], 8),
+  [Tile.Chocolate]: fill([92, 52, 32], 8),
 };
 
 export interface BlockAtlas {

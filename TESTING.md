@@ -1,5 +1,8 @@
 # Validação
 
+O jogo da criança é pacífico: pintar, construir, cenouras e o coelhinho branco.
+As notas abaixo são da base do MineBoss e continuam cobertas pelos testes.
+
 ## Estado atual — 19/10/2026
 
 - `pnpm test`: **160 testes passaram**. `pnpm build` passou. O pacote principal ficou em 794,02 kB (212,13 kB gzip).

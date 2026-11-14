@@ -104,8 +104,7 @@ body {
 }
 
 #health {
-  display: flex;
-  gap: 3px;
+  display: none;
 }
 
 .heart {
@@ -766,3 +765,88 @@ kbd {
 .play-extras:has(.build-idea), .play-extras:has(.album) { display: flex; justify-content: center; }
 .play-extras:has(.build-idea) .menu-card, .play-extras:has(.album) .menu-card { flex-direction: row; min-height: 48px; font-size: 16px; }
 .play-extras:has(.build-idea) .menu-icon, .play-extras:has(.album) .menu-icon { font-size: 24px; }
+
+#boss-bar,
+#damage-flash {
+  display: none !important;
+}
+
+#paint-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 128px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(980px, 96vw);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+#paint-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+#mode-build,
+#mode-paint {
+  min-width: 140px;
+  min-height: 58px;
+  padding: 8px 18px;
+  border-radius: 16px;
+  border: 4px solid #fff;
+  background: #fff6ea;
+  color: #243044;
+  font: 800 22px/1 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#mode-build.is-on,
+#mode-paint.is-on {
+  background: #ffb347;
+  border-color: #243044;
+}
+
+#carrot-count {
+  min-height: 58px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 16px;
+  background: #fff6ea;
+  color: #243044;
+  font: 800 20px/1 'Segoe UI', system-ui, sans-serif;
+}
+
+#paint-colors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.paint-color {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 16px;
+  border: 4px solid #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.paint-color.is-on {
+  outline: 4px solid #243044;
+  transform: scale(1.1);
+}
+
+@media (max-width: 700px) {
+  #paint-dock { bottom: 108px; }
+  .paint-color { width: 44px; height: 44px; }
+  #mode-build, #mode-paint { min-width: 112px; min-height: 50px; font-size: 18px; }
+}

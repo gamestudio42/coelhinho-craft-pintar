@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: process.env.GITHUB_PAGES === '1' ? '/mineboss/' : '/',
+  // A relative base loads at /coelhinho-craft-pintar/ and at
+  // /coelhinho-craft-pintar/pr-preview/pr-<number>/.
+  base: './',
   server: {
     port: 5173,
     strictPort: true,

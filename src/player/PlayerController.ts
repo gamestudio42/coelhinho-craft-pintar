@@ -282,6 +282,7 @@ export class PlayerController {
   }
 
   private applyFallDamage(distance: number): void {
+    if (this.player.peaceful) return;
     if (distance <= SAFE_FALL) return;
     const damage = Math.round((distance - SAFE_FALL) * FALL_DAMAGE_PER_BLOCK);
     if (damage > 0) this.player.health.damage(damage, { bypassInvulnerability: true });
@@ -289,6 +290,7 @@ export class PlayerController {
 
   /** Standing in lava hurts continuously rather than through the i-frame window. */
   private applyContactDamage(dt: number): void {
+    if (this.player.peaceful) return;
     let worst = 0;
     this.player.body.forEachOverlappingBlock(this.world, (id) => {
       worst = Math.max(worst, getBlockDef(id).contactDamage);

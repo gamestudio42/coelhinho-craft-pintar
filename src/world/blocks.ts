@@ -48,6 +48,25 @@ export enum Block {
   Chest = 41,
   BeaconTrophy = 42,
   BeaconLantern = 43,
+  Carrot = 44,
+  CarrotSprout = 45,
+  CarrotGrowing = 46,
+  CarrotRipe = 47,
+  Black = 48,
+  Gray = 49,
+  Brown = 50,
+  LightBlue = 51,
+  Lime = 52,
+  Cyan = 53,
+  Magenta = 54,
+  Peach = 55,
+  Cream = 56,
+  Navy = 57,
+  Teal = 58,
+  Coral = 59,
+  Lavender = 60,
+  Mint = 61,
+  Chocolate = 62,
 }
 
 export enum Tile {
@@ -100,6 +119,21 @@ export enum Tile {
   Chest = 46,
   BeaconTrophy = 47,
   BeaconLantern = 48,
+  Black = 49,
+  Gray = 50,
+  Brown = 51,
+  LightBlue = 52,
+  Lime = 53,
+  Cyan = 54,
+  Magenta = 55,
+  Peach = 56,
+  Cream = 57,
+  Navy = 58,
+  Teal = 59,
+  Coral = 60,
+  Lavender = 61,
+  Mint = 62,
+  Chocolate = 63,
 }
 
 export const ATLAS_TILE_PX = 16;
@@ -251,6 +285,44 @@ export const BLOCKS: readonly BlockDef[] = [
   def(Block.Chest, 'Baú', [Tile.Chest, Tile.Chest, Tile.Planks], { hardness: 0.35 }),
   def(Block.BeaconTrophy, 'Troféu do Faroleiro', [Tile.BeaconTrophy, Tile.BeaconTrophy, Tile.Moss], { glow: 0.6 }),
   def(Block.BeaconLantern, 'Lanterna do Farol', [Tile.BeaconLantern, Tile.BeaconLantern, Tile.Moss], { glow: 1 }),
+  def(Block.Carrot, 'Cenoura', [Tile.Orange, Tile.Orange, Tile.Orange], {
+    opaque: false,
+    solid: false,
+    hardness: 0.08,
+  }),
+  def(Block.CarrotSprout, 'Cenoura nascendo', [Tile.GrassTop, Tile.GrassTop, Tile.GrassTop], {
+    opaque: false,
+    solid: false,
+    hardness: 0.08,
+    drop: Block.Carrot,
+  }),
+  def(Block.CarrotGrowing, 'Cenoura crescendo', [Tile.Green, Tile.Green, Tile.Green], {
+    opaque: false,
+    solid: false,
+    hardness: 0.08,
+    drop: Block.Carrot,
+  }),
+  def(Block.CarrotRipe, 'Cenoura pronta', [Tile.Orange, Tile.Orange, Tile.Green], {
+    opaque: false,
+    solid: false,
+    hardness: 0.08,
+    drop: Block.Carrot,
+  }),
+  def(Block.Black, 'Preto', [Tile.Black, Tile.Black, Tile.Black], { hardness: 0.25 }),
+  def(Block.Gray, 'Cinza', [Tile.Gray, Tile.Gray, Tile.Gray], { hardness: 0.25 }),
+  def(Block.Brown, 'Marrom', [Tile.Brown, Tile.Brown, Tile.Brown], { hardness: 0.25 }),
+  def(Block.LightBlue, 'Azul claro', [Tile.LightBlue, Tile.LightBlue, Tile.LightBlue], { hardness: 0.25 }),
+  def(Block.Lime, 'Verde limão', [Tile.Lime, Tile.Lime, Tile.Lime], { hardness: 0.25 }),
+  def(Block.Cyan, 'Azul piscina', [Tile.Cyan, Tile.Cyan, Tile.Cyan], { hardness: 0.25 }),
+  def(Block.Magenta, 'Rosa forte', [Tile.Magenta, Tile.Magenta, Tile.Magenta], { hardness: 0.25 }),
+  def(Block.Peach, 'Pêssego', [Tile.Peach, Tile.Peach, Tile.Peach], { hardness: 0.25 }),
+  def(Block.Cream, 'Creme', [Tile.Cream, Tile.Cream, Tile.Cream], { hardness: 0.25 }),
+  def(Block.Navy, 'Azul escuro', [Tile.Navy, Tile.Navy, Tile.Navy], { hardness: 0.25 }),
+  def(Block.Teal, 'Verde água', [Tile.Teal, Tile.Teal, Tile.Teal], { hardness: 0.25 }),
+  def(Block.Coral, 'Coral', [Tile.Coral, Tile.Coral, Tile.Coral], { hardness: 0.25 }),
+  def(Block.Lavender, 'Lilás', [Tile.Lavender, Tile.Lavender, Tile.Lavender], { hardness: 0.25 }),
+  def(Block.Mint, 'Menta', [Tile.Mint, Tile.Mint, Tile.Mint], { hardness: 0.25 }),
+  def(Block.Chocolate, 'Chocolate', [Tile.Chocolate, Tile.Chocolate, Tile.Chocolate], { hardness: 0.25 }),
 ].sort((a, b) => a.id - b.id);
 
 const BLOCK_COUNT = BLOCKS.length;
@@ -305,4 +377,31 @@ export function isBed(id: number): boolean {
 
 export function isChest(id: number): boolean {
   return id === Block.Chest;
+}
+
+export function isCarrotItem(id: number): boolean {
+  return id === Block.Carrot;
+}
+
+export function isCarrotCrop(id: number): boolean {
+  return id === Block.CarrotSprout || id === Block.CarrotGrowing || id === Block.CarrotRipe;
+}
+
+/** The next growth stage, or null when the block is not a growing carrot. */
+export function nextCarrotStage(id: number): Block | null {
+  if (id === Block.CarrotSprout) return Block.CarrotGrowing;
+  if (id === Block.CarrotGrowing) return Block.CarrotRipe;
+  return null;
+}
+
+export function isSoil(id: number): boolean {
+  return id === Block.Dirt || id === Block.Grass || id === Block.Moss;
+}
+
+/** Whole blocks a child can recolor. Fluids, crops and unbreakable stone stay as they are. */
+export function canPaintBlock(id: number): boolean {
+  if (id === Block.Air || id === Block.Bedrock || id === Block.Water || id === Block.Lava) return false;
+  if (isCarrotCrop(id) || isCarrotItem(id)) return false;
+  const def = getBlockDef(id);
+  return def.solid && Number.isFinite(def.hardness);
 }
