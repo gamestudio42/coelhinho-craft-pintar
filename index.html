@@ -98,8 +98,8 @@
         background: linear-gradient(90deg, #c47a28, #ffb347, #ffe08a);
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-DUjK9chk.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CJ8lg4WA.css">
+    <script type="module" crossorigin src="./assets/index-CfXz5I52.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CJ1p9aMO.css">
   </head>
   <body>
     <div
@@ -148,6 +148,7 @@
 
         <div id="play-tips" class="hidden">
           <div id="play-tips-list"></div>
+          <button id="play-tips-fold" type="button" aria-expanded="true" aria-label="Recolher dicas">−</button>
           <button id="play-tips-close" type="button" aria-label="Fechar dicas">✕</button>
         </div>
 
@@ -203,7 +204,7 @@
 
         <div id="debug" class="hidden"></div>
         <a class="studio-mark studio-mark-play" href="https://gamestudio42.github.io/" target="_blank" rel="noreferrer" aria-label="Game Studio 42" data-testid="studio-mark">
-          <img src="./studio-badge.svg" alt="" width="30" height="30" />
+          <img src="./studio-badge.svg" alt="" width="44" height="44" />
         </a>
       </div>
 
@@ -251,14 +252,15 @@
             </label>
           </div>
           <ul id="controls">
-            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: andar</li>
-            <li><kbd>Espaço</kbd> pular · <kbd>Shift</kbd> descer no voo</li>
-            <li><kbd>Botão esquerdo</kbd> tirar o bloco</li>
-            <li><kbd>Botão direito</kbd> colocar o bloco ou pintar</li>
+            <li class="keys-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: andar</li>
+            <li class="keys-only"><kbd>Espaço</kbd> pular · <kbd>Shift</kbd> descer no voo</li>
+            <li class="keys-only"><kbd>Botão esquerdo</kbd> tirar o bloco</li>
+            <li class="keys-only"><kbd>Botão direito</kbd> colocar o bloco ou pintar</li>
+            <li class="touch-only">O círculo anda. A cenoura pega e o tijolo coloca.</li>
             <li>Botão <strong>Pintar</strong> e uma cor grande: pintar a parede</li>
             <li>Cenoura: plantar na terra ou dar ao coelhinho</li>
-            <li><kbd>P</kbd> pintar · <kbd>B</kbd> blocos · <kbd>H</kbd> ajuda</li>
-            <li><kbd>V</kbd> ver o personagem · <kbd>F</kbd> voar · <kbd>Esc</kbd> menu</li>
+            <li class="keys-only"><kbd>P</kbd> pintar · <kbd>B</kbd> blocos · <kbd>H</kbd> ajuda</li>
+            <li class="keys-only"><kbd>V</kbd> ver o personagem · <kbd>F</kbd> voar · <kbd>Esc</kbd> menu</li>
           </ul>
         </div>
       </div>
