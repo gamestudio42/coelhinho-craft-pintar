@@ -9,6 +9,10 @@ const SPEED = 3.8;
 const STEP_HEIGHT = 1.1;
 /** Trots up to this distance and then sits by the player. */
 export const PET_FOLLOW_DISTANCE = 2.6;
+/** Centres stay at least this far from the player, so a friend never stands inside them. */
+export const PET_PLAYER_GAP = 1.15;
+/** Centres stay at least this far from each other. */
+export const PET_FRIEND_GAP = 1.2;
 /** Farther than this (a teleport, a long flight) it simply catches up. */
 export const PET_CATCH_UP_DISTANCE = 18;
 /** Stays this close to the middle of its pen while waiting. */
@@ -29,6 +33,62 @@ export function petName(kind: PetKind): string {
   if (kind === 'cat') return 'gatinho';
   if (kind === 'dog') return 'cachorrinho';
   return 'coelhinho';
+}
+
+const PARKING: Record<PetKind, { side: number; back: number }> = {
+  bunny: { side: -1.35, back: 1.85 },
+  cat: { side: 1.35, back: 1.85 },
+  dog: { side: 0, back: 2.45 },
+};
+
+/**
+ * Where this friend waits while following: behind the player, each on its own side.
+ * `yaw` matches the player. Forward is (-sin yaw, -cos yaw).
+ */
+export function petParkingSpot(kind: PetKind, player: { x: number; z: number; yaw: number }): { x: number; z: number } {
+  const spot = PARKING[kind];
+  const fx = -Math.sin(player.yaw);
+  const fz = -Math.cos(player.yaw);
+  const rx = Math.cos(player.yaw);
+  const rz = -Math.sin(player.yaw);
+  return {
+    x: player.x - fx * spot.back + rx * spot.side,
+    z: player.z - fz * spot.back + rz * spot.side,
+  };
+}
+
+export interface SeparationCircle {
+  x: number;
+  z: number;
+  gap: number;
+}
+
+/**
+ * A soft push out of every circle closer than its gap. Overlapping centres
+ * use `bias` so two friends on the same point do not pick the same escape.
+ */
+export function separateFrom(
+  self: { x: number; z: number },
+  others: readonly SeparationCircle[],
+  bias = 0,
+): { x: number; z: number } {
+  let x = 0;
+  let z = 0;
+  for (const other of others) {
+    let dx = self.x - other.x;
+    let dz = self.z - other.z;
+    let dist = Math.hypot(dx, dz);
+    if (dist < 0.05) {
+      dx = Math.cos(bias);
+      dz = Math.sin(bias);
+      dist = 1;
+    }
+    if (dist >= other.gap) continue;
+    const scale = (other.gap - dist) / other.gap;
+    x += (dx / dist) * scale;
+    z += (dz / dist) * scale;
+  }
+  return { x, z };
 }
 
 /**
@@ -83,25 +143,31 @@ export class Pet extends Entity {
     const { dt, world, player } = context;
     if (!world.getChunk(Math.floor(this.position.x) >> 4, Math.floor(this.position.z) >> 4)) return;
 
-    const target = this.following ? player.position : this.home;
-    const dx = target.x - this.position.x;
-    const dz = target.z - this.position.z;
+    const spot = this.following
+      ? petParkingSpot(this.kind, { x: player.position.x, z: player.position.z, yaw: player.yaw })
+      : this.home;
+    const dx = spot.x - this.position.x;
+    const dz = spot.z - this.position.z;
     const distance = Math.hypot(dx, dz);
+    const playerDistance = Math.hypot(player.position.x - this.position.x, player.position.z - this.position.z);
     if (this.following) this.settled = false;
     // Height matters: standing on the fence is close to home on the map, but
     // the bunny still has to hop down inside the pen.
     else if (distance <= PET_HOME_RADIUS && Math.abs(this.position.y - this.home.y) < 0.75) this.settled = true;
     const returning = !this.following && !this.settled;
     this.strayTime = returning ? this.strayTime + dt : 0;
+    const travel = this.following ? playerDistance : distance;
 
-    if (this.position.y < 0 || distance > PET_CATCH_UP_DISTANCE || this.strayTime > PET_STRAY_SECONDS) {
-      if (!this.following || player.body.onGround) this.teleport(target);
+    if (this.position.y < 0 || travel > PET_CATCH_UP_DISTANCE || this.strayTime > PET_STRAY_SECONDS) {
+      if (!this.following || player.body.onGround) {
+        this.teleport({ x: spot.x, y: this.following ? player.position.y : this.home.y, z: spot.z });
+      }
       return;
     }
 
-    let goalX = target.x;
-    let goalZ = target.z;
-    const stop = this.following ? PET_FOLLOW_DISTANCE : 0.3;
+    let goalX = spot.x;
+    let goalZ = spot.z;
+    const stop = this.following ? 0.45 : 0.3;
     if (this.settled) {
       this.wanderTimer -= dt;
       if (this.wanderTimer <= 0) {
@@ -124,12 +190,17 @@ export class Pet extends Entity {
       wishX = steered.x;
       wishZ = steered.z;
     }
+    const push = this.pushAway(context);
+    wishX += push.x * 2.2;
+    wishZ += push.z * 2.2;
     this.body.stepHeight = this.settled ? 0 : STEP_HEIGHT;
     walkToward(this, world, wishX, wishZ, this.settled ? SPEED * 0.45 : SPEED, dt, this.settled ? 'never' : 'moving');
 
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
     if (speed > 0.2) this.body3D.rotation.y = Math.atan2(this.velocity.x, this.velocity.z);
-    else if (this.following && distance > 0.4) this.body3D.rotation.y = Math.atan2(dx, dz);
+    else if (this.following && playerDistance > 0.4) {
+      this.body3D.rotation.y = Math.atan2(player.position.x - this.position.x, player.position.z - this.position.z);
+    }
     const swing = speed > 0.2 ? Math.sin(context.elapsed * 14) * 0.5 : 0;
     this.legs.forEach((leg, i) => { leg.rotation.x = i % 3 === 0 ? swing : -swing; });
     if (this.nibble > 0) this.nibble = Math.max(0, this.nibble - dt);
@@ -170,6 +241,20 @@ export class Pet extends Entity {
 
   get nibbling(): boolean {
     return this.nibble > 0;
+  }
+
+  private pushAway(context: EntityContext): { x: number; z: number } {
+    const others: SeparationCircle[] = [{
+      x: context.player.position.x,
+      z: context.player.position.z,
+      gap: PET_PLAYER_GAP,
+    }];
+    for (const entity of context.entities.entities) {
+      if (entity === this || entity.removed || !(entity instanceof Pet)) continue;
+      others.push({ x: entity.position.x, z: entity.position.z, gap: PET_FRIEND_GAP });
+    }
+    const bias = this.kind === 'cat' ? 2.4 : this.kind === 'dog' ? 4.4 : 0.6;
+    return separateFrom(this.position, others, bias);
   }
 
   private teleport(target: { x: number; y: number; z: number }): void {
