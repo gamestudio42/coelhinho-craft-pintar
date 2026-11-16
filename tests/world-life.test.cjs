@@ -12,7 +12,7 @@ const { Game } = require('../src/core/Game.ts');
 const { parseSave } = require('../src/core/Save.ts');
 const { BuildWatcher, PEN_SETTLE_SECONDS, TOWER_HEIGHT, recognizeBuild } = require('../src/world/builds.ts');
 const { ideaCubes } = require('../src/ui/BuildIdeas.ts');
-const { Pet, PET_FOLLOW_DISTANCE, PET_HOME_RADIUS, PET_STRAY_SECONDS } = require('../src/entities/Pet.ts');
+const { Pet, PET_FOLLOW_DISTANCE, PET_FRIEND_GAP, PET_HOME_RADIUS, PET_PLAYER_GAP, PET_STRAY_SECONDS, petParkingSpot, separateFrom } = require('../src/entities/Pet.ts');
 
 const DT = 1 / 60;
 const Y = 100;
@@ -159,7 +159,7 @@ test('the pet follows the player, waits at home, catches up after a teleport and
   run(DT);
   player.position.set(28.5 + 40, Y, 1.5);
   run(DT);
-  assert.ok(gap() < 1, 'catches up when far away');
+  assert.ok(gap() > PET_PLAYER_GAP - 0.05 && gap() <= PET_FOLLOW_DISTANCE + 0.6, `catches up beside the player (${gap().toFixed(2)})`);
 
   assert.equal(pet.team, 'neutral');
   assert.ok(!(pet instanceof Minion), 'boss and island mob counts ignore the pet');
@@ -167,6 +167,60 @@ test('the pet follows the player, waits at home, catches up after a teleport and
   const eye = new THREE.Vector3(pet.position.x - 2, pet.position.y + 0.4, pet.position.z);
   assert.equal(entities.raycast(eye, new THREE.Vector3(1, 0, 0), 4, 'boss'), null, 'the hammer never aims at it');
   assert.equal(entities.raycast(eye, new THREE.Vector3(1, 0, 0), 4, 'neutral').entity, pet);
+});
+
+test('friends park on different sides and slide apart instead of stacking', () => {
+  const player = { x: 10, z: 4, yaw: 0 };
+  const spots = ['bunny', 'cat', 'dog'].map((kind) => petParkingSpot(kind, player));
+  const forwardX = -Math.sin(player.yaw);
+  const forwardZ = -Math.cos(player.yaw);
+  for (let i = 0; i < spots.length; i++) {
+    const behind = (spots[i].x - player.x) * forwardX + (spots[i].z - player.z) * forwardZ;
+    assert.ok(behind < -1, `${i} waits behind the player`);
+    for (let j = i + 1; j < spots.length; j++) {
+      const apart = Math.hypot(spots[i].x - spots[j].x, spots[i].z - spots[j].z);
+      assert.ok(apart >= PET_FRIEND_GAP, `parking spots ${i} and ${j} stay apart (${apart.toFixed(2)})`);
+    }
+  }
+  const clear = separateFrom({ x: 0, z: 0 }, [{ x: 5, z: 0, gap: PET_FRIEND_GAP }]);
+  assert.equal(clear.x, 0);
+  assert.equal(clear.z, 0);
+  const push = separateFrom({ x: 0, z: 0 }, [{ x: 0.2, z: 0, gap: PET_FRIEND_GAP }]);
+  assert.ok(push.x < 0, 'an overlap pushes away from the neighbour');
+
+  const { player: hero, entities, run } = petScene();
+  hero.position.set(12.5, Y, 12.5);
+  hero.yaw = 0.4;
+  const friends = [
+    entities.add(new Pet({ x: 12.5, y: Y, z: 12.5 }, 'bunny')),
+    entities.add(new Pet({ x: 12.5, y: Y, z: 12.5 }, 'cat')),
+    entities.add(new Pet({ x: 12.5, y: Y, z: 12.5 }, 'dog')),
+  ];
+  for (const friend of friends) friend.following = true;
+  run(3);
+  const gapTo = (friend) => Math.hypot(friend.position.x - hero.position.x, friend.position.z - hero.position.z);
+  for (const friend of friends) {
+    assert.ok(gapTo(friend) >= PET_PLAYER_GAP - 0.08, `${friend.kind} stays out of the player (${gapTo(friend).toFixed(2)})`);
+  }
+  for (let i = 0; i < friends.length; i++) {
+    for (let j = i + 1; j < friends.length; j++) {
+      const apart = Math.hypot(friends[i].position.x - friends[j].position.x, friends[i].position.z - friends[j].position.z);
+      assert.ok(apart >= PET_FRIEND_GAP - 0.08, `${friends[i].kind} and ${friends[j].kind} stay apart (${apart.toFixed(2)})`);
+    }
+  }
+
+  const dog = friends[2];
+  hero.position.set(dog.position.x, Y, dog.position.z);
+  run(1.5);
+  assert.ok(gapTo(dog) >= PET_PLAYER_GAP - 0.08, `the dog steps aside when the player walks into it (${gapTo(dog).toFixed(2)})`);
+  for (const friend of friends) friend.feed();
+  run(1);
+  for (let i = 0; i < friends.length; i++) {
+    for (let j = i + 1; j < friends.length; j++) {
+      const apart = Math.hypot(friends[i].position.x - friends[j].position.x, friends[i].position.z - friends[j].position.z);
+      assert.ok(apart >= PET_FRIEND_GAP - 0.08, `they still have room while eating (${apart.toFixed(2)})`);
+    }
+  }
 });
 
 test('a one-block fence keeps the waiting pet in, and a pet left outside finds its way home', () => {
