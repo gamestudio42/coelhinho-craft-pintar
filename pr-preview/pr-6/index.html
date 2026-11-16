@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coelhinho Craft Pintar</title>
+    <meta name="theme-color" content="#7ec8f0" />
+    <meta
+      name="description"
+      content="Coelhinho Craft Pintar: pinte blocos, construa e brinque com um coelhinho fofinho. Sem monstros."
+    />
+    <meta property="og:title" content="Coelhinho Craft Pintar" />
+    <meta
+      property="og:description"
+      content="Pinte, construa e brinque com um coelhinho fofinho. Sem monstros."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gamestudio42.github.io/coelhinho-craft-pintar/" />
+    <meta
+      property="og:image"
+      content="https://gamestudio42.github.io/coelhinho-craft-pintar/og.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Coelhinho Craft Pintar" />
+    <meta
+      name="twitter:description"
+      content="Pinte, construa e brinque com um coelhinho fofinho. Sem monstros."
+    />
+    <meta
+      name="twitter:image"
+      content="https://gamestudio42.github.io/coelhinho-craft-pintar/og.jpg"
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #7ec8f0;
+      }
+      .boot-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: radial-gradient(circle at 50% 40%, #fff6ea 0%, #7ec8f0 70%);
+        color: #e8eef6;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      }
+      .boot-screen > img {
+        width: 96px;
+        height: 96px;
+      }
+      .boot-screen .studio-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        color: #8b9bb0;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-decoration: none;
+      }
+      .boot-screen .studio-mark img {
+        width: 28px;
+        height: 28px;
+      }
+      .boot-word {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin-right: -0.08em;
+        line-height: 1.1;
+        text-align: center;
+        color: #ffb347;
+      }
+      .boot-step {
+        margin: 0;
+        color: #8b9bb0;
+        font-size: 14px;
+      }
+      .boot-progress {
+        width: min(260px, 70vw);
+        height: 6px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .boot-progress-fill {
+        width: 0;
+        height: 100%;
+        background: linear-gradient(90deg, #c47a28, #ffb347, #ffe08a);
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-Btai3FgW.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CJ1p9aMO.css">
+  </head>
+  <body>
+    <div
+      id="boot-screen"
+      class="boot-screen"
+      data-testid="boot-screen"
+      data-step="graphics"
+      aria-busy="true"
+    >
+      <img src="./favicon.svg" alt="" />
+      <strong class="boot-word">COELHINHO</strong>
+      <p class="boot-step" data-testid="boot-step">Carregando…</p>
+      <div
+        class="boot-progress"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+      >
+        <div class="boot-progress-fill"></div>
+      </div>
+      <a class="studio-mark studio-mark-boot" href="https://gamestudio42.github.io/" target="_blank" rel="noreferrer" aria-label="Game Studio 42">
+        <img src="./studio-badge.svg" alt="" width="28" height="28" />
+        <span>Game Studio 42</span>
+      </a>
+    </div>
+    <div id="app">
+      <canvas id="viewport"></canvas>
+
+      <div id="mouse-prompt" class="hidden"><p>Clique para olhar e brincar</p><button id="mouse-activate" type="button">Ativar mouse</button></div>
+    <div id="hud" class="hidden">
+        <div id="water-veil"></div>
+        <div id="crosshair"></div>
+
+        <div id="boss-bar" class="hidden" hidden>
+          <div class="boss-bar-name"></div>
+          <div class="boss-bar-track">
+            <div class="boss-bar-chip"></div>
+            <div class="boss-bar-fill"></div>
+          </div>
+          <div class="boss-bar-status">
+            <div class="boss-bar-phase"></div>
+            <div class="boss-bar-vulnerable hidden"></div>
+          </div>
+        </div>
+
+        <div id="play-tips" class="hidden">
+          <div id="play-tips-list"></div>
+          <button id="play-tips-fold" type="button" aria-expanded="true" aria-label="Recolher dicas">−</button>
+          <button id="play-tips-close" type="button" aria-label="Fechar dicas">✕</button>
+        </div>
+
+        <div id="touch-controls" class="hidden">
+          <div id="touch-stick" aria-label="Andar"></div>
+          <div id="touch-actions">
+            <button id="touch-mine" type="button" aria-label="Pegar">🥕</button>
+            <button id="touch-use" type="button" aria-label="Colocar">🧱</button>
+          </div>
+        </div>
+
+        <div id="paint-backdrop" class="hidden" hidden></div>
+        <button id="paint-toggle" type="button" aria-expanded="false" aria-controls="paint-sheet" aria-label="Cores">🎨</button>
+        <div id="paint-dock">
+          <div id="paint-sheet" hidden>
+            <button id="paint-close" type="button" aria-label="Fechar">✕</button>
+            <div id="paint-toolbar">
+              <button id="mode-build" type="button" aria-pressed="true">🧱 Construir</button>
+              <button id="mode-paint" type="button" aria-pressed="false">🎨 Pintar</button>
+              <button id="mode-bucket" type="button" aria-pressed="false" aria-label="Balde">🪣 <span class="tool-word">Balde</span></button>
+            </div>
+            <div id="paint-swatches">
+              <span id="carrot-count">🥕 0</span>
+              <div id="paint-colors"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="compass" class="hidden">
+          <div class="compass-ring">
+            <div id="compass-arrow">▲</div>
+          </div>
+          <div id="compass-label"></div>
+        </div>
+
+        <div id="objective"></div>
+        <div id="seed-label"></div>
+        <div id="phase-label"></div>
+        <div id="hint"></div>
+        <div id="flight-status"></div>
+        <div id="build-lesson" class="hidden"><svg viewBox="0 0 60 80" aria-label="Botões do mouse"><rect x="8" y="3" width="44" height="72" rx="22" fill="#263c4c" stroke="white" stroke-width="3"/><path class="left-button" d="M30 4 C14 4 9 14 9 32 H30 Z"/><path class="right-button" d="M30 4 C46 4 51 14 51 32 H30 Z"/><path d="M30 4 V35 M9 33 H51" fill="none" stroke="white" stroke-width="2"/></svg><span></span></div>
+        <div id="play-help"></div>
+        <div id="action-label"></div>
+
+        <div id="bottom-bar">
+          <div id="health"></div>
+          <div id="loadout">
+            <div id="hammer-label"></div>
+            <div id="slot-hint"></div>
+          </div>
+          <div id="hotbar"></div>
+        </div>
+
+        <div id="debug" class="hidden"></div>
+        <a class="studio-mark studio-mark-play" href="https://gamestudio42.github.io/" target="_blank" rel="noreferrer" aria-label="Game Studio 42" data-testid="studio-mark">
+          <img src="./studio-badge.svg" alt="" width="44" height="44" />
+        </a>
+      </div>
+
+      <div id="save-status" role="status" aria-live="polite"></div>
+      <div id="session-status" class="hidden" role="status">Registro ligado</div>
+      <div id="damage-flash"></div>
+
+      <div id="overlay" class="hidden" data-testid="main-menu">
+        <a class="studio-mark studio-mark-menu" href="https://gamestudio42.github.io/" target="_blank" rel="noreferrer" aria-label="Game Studio 42" data-testid="studio-mark">
+          <img src="./studio-badge.svg" alt="" width="28" height="28" />
+          <span>Game Studio 42</span>
+        </a>
+        <div id="overlay-panel">
+          <h1 class="title">Coelhinho Craft Pintar</h1>
+          <p id="overlay-text">
+            Pinte, construa e brinque com o coelhinho fofinho.
+          </p>
+          <div id="overlay-actions">
+            <button id="overlay-button" type="button">Jogar</button>
+            <button id="overlay-secondary" class="hidden" type="button">Nova partida</button>
+          </div>
+          <div id="settings" class="hidden">
+            <label class="setting"><span>Qualidade da imagem</span><select id="setting-quality"><option value="light">Leve</option><option value="balanced">Equilibrada</option><option value="high">Caprichada</option></select></label>
+            <label class="setting setting-check"><input id="setting-motion" type="checkbox" /><span>Câmera tranquila (sem balanço e tremor)</span></label>
+            <label class="setting setting-check"><input id="setting-effects" type="checkbox" /><span>Efeitos suaves (menos partículas e flashes)</span></label>
+            <label class="setting">
+              <span>Volume <strong id="setting-volume-value">45%</strong></span>
+              <input id="setting-volume" type="range" min="0" max="100" value="45" />
+            </label>
+            <label class="setting setting-check">
+              <input id="setting-mute" type="checkbox" />
+              <span>Sem som</span>
+            </label>
+            <label class="setting setting-check">
+              <input id="setting-narrator" type="checkbox" checked />
+              <span>Ler as dicas em voz alta</span>
+            </label>
+            <label class="setting setting-check">
+              <input id="setting-music" type="checkbox" checked />
+              <span>Música</span>
+            </label>
+            <label class="setting">
+              <span>Sensibilidade do mouse <strong id="setting-sensitivity-value">1.0×</strong></span>
+              <input id="setting-sensitivity" type="range" min="40" max="220" value="100" />
+            </label>
+          </div>
+          <ul id="controls">
+            <li class="keys-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: andar</li>
+            <li class="keys-only"><kbd>Espaço</kbd> pular · <kbd>Shift</kbd> descer no voo</li>
+            <li class="keys-only"><kbd>Botão esquerdo</kbd> tirar o bloco</li>
+            <li class="keys-only"><kbd>Botão direito</kbd> colocar o bloco ou pintar</li>
+            <li class="touch-only">O círculo anda. A cenoura pega e o tijolo coloca.</li>
+            <li>Botão <strong>Pintar</strong> e uma cor grande: pintar a parede</li>
+            <li>Cenoura: plantar na terra ou dar ao coelhinho</li>
+            <li class="keys-only"><kbd>P</kbd> pintar · <kbd>B</kbd> blocos · <kbd>H</kbd> ajuda</li>
+            <li class="keys-only"><kbd>V</kbd> ver o personagem · <kbd>F</kbd> voar · <kbd>Esc</kbd> menu</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <script
+      data-goatcounter="https://gamestudio42.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </body>
+</html>
