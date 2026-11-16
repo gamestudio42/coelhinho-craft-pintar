@@ -178,6 +178,10 @@ test('free play HUD keeps only the objective and hint once the lesson is over', 
   assert.equal(hudChrome({ ...base, flying: true }).flight, '✈ Shift desce · F pousa');
   assert.notEqual(hudChrome({ ...base, tutorialDone: false }).playHelp, '');
   assert.equal(hudChrome({ ...base, peaceful: true, tutorialDone: false }).playHelp, '');
+  assert.match(hudChrome({ ...base, creative: false, elapsed: 10 }).playHelp, /C: criar/);
+  assert.equal(hudChrome({ ...base, creative: false, elapsed: 10, coarse: true }).playHelp, '');
+  assert.equal(hudChrome({ ...base, coarse: true }).flight, '');
+  assert.equal(hudChrome({ ...base, flying: true, coarse: true }).flight, '✈ Voando');
 
   const survival = { ...base, creative: false };
   assert.notEqual(hudChrome({ ...survival, elapsed: PLAY_HELP_SECONDS - 1 }).playHelp, '');

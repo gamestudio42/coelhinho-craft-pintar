@@ -49,7 +49,7 @@ import { SkyCycle, type SkyMood } from '../world/weather.ts';
 import { SkyShow } from '../render/SkyShow.ts';
 import { SECRET, VILLAGE, groundY, toggleSecretDoor } from '../world/places.ts';
 import { PaintPalette } from '../ui/PaintPalette.ts';
-import { fillPlayTips, hideTips, PLAY_TIPS, tipsOpen, TIPS_STORAGE_KEY } from '../ui/PlayTips.ts';
+import { fillPlayTips, foldTips, hideTips, playHint, PLAY_TIPS, tipLine, tipsOpen, TIPS_STORAGE_KEY } from '../ui/PlayTips.ts';
 import { bindTouchControls } from '../ui/TouchControls.ts';
 import { ChunkManager } from '../world/ChunkManager.ts';
 import { OneBlock } from '../world/oneblock/OneBlock.ts';
@@ -70,7 +70,7 @@ import { loadSettings, saveSettings, QUALITY, type StoredSettings } from './Sett
 import { albumCount, albumPanel, albumSections, buildFoundText, type AlbumSection } from '../ui/Album.ts';
 import { buildIdeaPanel, BUILD_IDEAS } from '../ui/BuildIdeas.ts';
 import { BuildWatcher, type RecognizedBuild } from '../world/builds.ts';
-import { combatCue, showActionCue, spokenCue } from '../ui/CombatCue.ts';
+import { combatCue, cueForTouch, showActionCue, spokenCue } from '../ui/CombatCue.ts';
 import { hudChrome } from '../ui/HudChrome.ts';
 import { Shockwave } from '../entities/boss/attacks/Shockwave.ts';
 import { holdsCoverBlock } from '../entities/boss/attacks/cover.ts';
@@ -282,7 +282,7 @@ export class Game {
       this.interaction.paintMode = this.palette.mode;
       this.interaction.bucketMode = this.palette.bucket;
       this.interaction.paintBlock = this.palette.color;
-      const hint = this.palette.bucket ? 'O balde pinta vários iguais.' : this.palette.mode ? 'Direito pinta.' : 'Agora é construir.';
+      const hint = this.palette.bucket ? 'O balde pinta vários iguais.' : this.palette.mode ? (this.input.coarse ? 'Toque no tijolo para pintar.' : 'Direito pinta.') : 'Agora é construir.';
       this.hud.showHint(hint, 2.4);
     };
     this.interaction.onFilled = (count, capped) => {
@@ -463,7 +463,7 @@ export class Game {
     this.interaction.onBedFound = () => {
       if (this.hintedBed) return;
       this.hintedBed = true;
-      this.hud.showHint('Coloque a cama e clique nela com o botão direito para descansar', 3.8);
+      this.hud.showHint(playHint('bed', this.input.coarse), 3.8);
     };
     this.interaction.onChestOpened = () => {
       const loot = chestLoot(this.mode === 'oneblock' ? this.oneBlock.phaseIndex : 0);
@@ -626,17 +626,17 @@ export class Game {
     if (this.inEncounter || this.practice) {
       this.hud.hideHint();
     } else if (this.player.peaceful) {
-      this.hud.showHint('Siga o caminho amarelo até o quadro rosa.', 5);
+      this.hud.showHint(playHint('path', this.input.coarse), 5);
     } else if (this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked) {
-      this.hud.showHint('Use o direito para colocar terra e ampliar a ilha.', 5);
+      this.hud.showHint(playHint('island', this.input.coarse), 5);
     } else if (this.player.creative) {
-      this.hud.showHint('B: escolha blocos. Esc: construir, base e chefões.', 4);
+      this.hud.showHint(playHint('blocks', this.input.coarse), 4);
     } else if (!this.arena.ruinFound) {
       this.rememberHint('ruin');
       this.hud.showHint('Encontre o Sentinela: siga a bússola ou use Visitar no menu', 4.2);
     } else if (!this.player.creative && !this.hintedBed && this.player.inventory.slots.some((slot) => slot.block === Block.Bed)) {
       this.hintedBed = true;
-      this.hud.showHint('Coloque a cama e clique nela com o botão direito para descansar', 3.8);
+      this.hud.showHint(playHint('bed', this.input.coarse), 3.8);
     }
     this.persistSave();
   }
@@ -1122,6 +1122,7 @@ export class Game {
   }
 
   private updateHud(dt: number): void {
+    this.hud.touch = this.input.coarse;
     this.hud.update(
       dt,
       this.player.inventory,
@@ -1152,15 +1153,16 @@ export class Game {
       flying: this.player.flying,
       fighting,
       tutorialDone: this.tutorialDone,
+      coarse: this.input.coarse,
       elapsed: this.elapsed,
       oneBlockMark: `${this.oneBlock.label} · ${oneBlockMark}`,
     });
     this.hud.setPhase(chrome.phase);
     const lesson = fighting ? 0 : this.buildLesson;
-    updateBuildLesson(lesson);
+    updateBuildLesson(lesson, this.input.coarse);
     if (lesson !== this.spokenLesson) {
       this.spokenLesson = lesson;
-      if (lesson) this.narrator?.say(lessonCaption(lesson), 0);
+      if (lesson) this.narrator?.say(lessonCaption(lesson, this.input.coarse), 0);
     }
     setText('flight-status', chrome.flight);
     setText('play-help', chrome.playHelp);
@@ -1222,22 +1224,25 @@ export class Game {
       this.spokenFightCue = line;
       this.narrator?.say(line, FIGHT_CUE_REPEAT_SECONDS);
     }
-    if (cue) showActionCue(cue);
-    else if (this.controller.edgeBlocked) showActionCue({ icon: '✋', key: 'Espaço', text: 'Proteção de borda: queda à frente', kind: 'warning' });
-    else if (this.interaction.placementHint) showActionCue({ icon: '!', key: '', text: this.interaction.placementHint, kind: 'warning' });
-    else if (this.buildLesson) showActionCue(null);
-    else if (!this.player.peaceful && this.combat.aimed) showActionCue({ icon: '🔨', key: 'Esquerdo', text: 'Bater', kind: 'attack' });
-    else if (!this.player.peaceful && (this.interaction.aimingAltar || this.interaction.aimingStatue || this.interaction.aimingBeacon)) showActionCue({ icon: '👑', key: 'Direito', text: 'Visitar chefão', kind: 'build' });
-    else if (this.palette.mode && target) showActionCue({ icon: '🎨', key: 'Direito', text: 'Pintar este bloco', kind: 'build' });
-    else if (isGoldenCarrot(this.player.inventory.selectedSlot.block ?? -1)) showActionCue({ icon: '✨', key: 'Direito', text: 'Dar ao coelhinho', kind: 'build' });
-    else if (isCarrotItem(this.player.inventory.selectedSlot.block ?? -1)) showActionCue({ icon: '🥕', key: 'Direito', text: 'Plantar ou dar ao coelhinho', kind: 'build' });
-    else if (this.interaction.aimingBed) showActionCue({ icon: '☾', key: 'Direito', text: 'Descansar', kind: 'build' });
-    else if (this.interaction.aimingChest) showActionCue({ icon: '📦', key: 'Direito', text: 'Abrir baú', kind: 'build' });
-    else if (this.interaction.holdingConsumable) showActionCue({ icon: '♥', key: 'Direito', text: 'Comer', kind: 'build' });
-    else if (aimingCore) showActionCue({ icon: '🔨', key: 'Esquerdo', text: 'Segure para pegar blocos', kind: 'build' });
-    else if (this.interaction.holdingTorchFuel || this.interaction.holdingUpgradeOre) showActionCue({ icon: '🔨', key: 'C', text: 'Criar itens', kind: 'build' });
-    else if (target) showActionCue({ icon: '🧱', key: 'Direito', text: 'Colocar · esquerdo remove', kind: 'build' });
-    else showActionCue(null);
+    const showCue = (next: Parameters<typeof showActionCue>[0]): void => {
+      showActionCue(next && this.input.coarse ? cueForTouch(next) : next);
+    };
+    if (cue) showCue(cue);
+    else if (this.controller.edgeBlocked) showCue({ icon: '✋', key: 'Espaço', text: 'Proteção de borda: queda à frente', kind: 'warning' });
+    else if (this.interaction.placementHint) showCue({ icon: '!', key: '', text: this.interaction.placementHint, kind: 'warning' });
+    else if (this.buildLesson) showCue(null);
+    else if (!this.player.peaceful && this.combat.aimed) showCue({ icon: '🔨', key: 'Esquerdo', text: 'Bater', kind: 'attack' });
+    else if (!this.player.peaceful && (this.interaction.aimingAltar || this.interaction.aimingStatue || this.interaction.aimingBeacon)) showCue({ icon: '👑', key: 'Direito', text: 'Visitar chefão', kind: 'build' });
+    else if (this.palette.mode && target) showCue({ icon: '🎨', key: 'Direito', text: 'Pintar este bloco', kind: 'build' });
+    else if (isGoldenCarrot(this.player.inventory.selectedSlot.block ?? -1)) showCue({ icon: '✨', key: 'Direito', text: 'Dar ao coelhinho', kind: 'build' });
+    else if (isCarrotItem(this.player.inventory.selectedSlot.block ?? -1)) showCue({ icon: '🥕', key: 'Direito', text: 'Plantar ou dar ao coelhinho', kind: 'build' });
+    else if (this.interaction.aimingBed) showCue({ icon: '☾', key: 'Direito', text: 'Descansar', kind: 'build' });
+    else if (this.interaction.aimingChest) showCue({ icon: '📦', key: 'Direito', text: 'Abrir baú', kind: 'build' });
+    else if (this.interaction.holdingConsumable) showCue({ icon: '♥', key: 'Direito', text: 'Comer', kind: 'build' });
+    else if (aimingCore) showCue({ icon: '🔨', key: 'Esquerdo', text: 'Segure para pegar blocos', kind: 'build' });
+    else if (this.interaction.holdingTorchFuel || this.interaction.holdingUpgradeOre) showCue({ icon: '🔨', key: 'C', text: 'Criar itens', kind: 'build' });
+    else if (target) showCue({ icon: '🧱', key: 'Direito', text: 'Colocar · esquerdo remove', kind: 'build' });
+    else showCue(null);
     if (this.combat.aimed) this.hud.setCrosshair('attack');
     else if (fighting) this.hud.setCrosshair('idle');
     else if (this.interaction.aimingAltar || this.interaction.aimingStatue || this.interaction.aimingBeacon) this.hud.setCrosshair('altar');
@@ -1261,12 +1266,12 @@ export class Game {
       return;
     }
     if (this.player.creative && !this.inEncounter) {
-      this.setGuideObjective(this.guidance ? 'Construa do seu jeito · Esc: sua base e chefões' : null);
+      this.setGuideObjective(this.guidance ? (this.input.coarse ? 'Construa do seu jeito' : 'Construa do seu jeito · Esc: sua base e chefões') : null);
       this.hud.compass.update(false, 0, '');
       return;
     }
     if (!this.guidance && !this.inEncounter) {
-      this.setGuideObjective('Construa do seu jeito · B: blocos e mochila');
+      this.setGuideObjective(this.input.coarse ? 'Construa do seu jeito' : 'Construa do seu jeito · B: blocos e mochila');
       this.hud.compass.update(false, 0, '');
       return;
     }
@@ -1877,7 +1882,7 @@ export class Game {
 
   private showBuildingTools(): void {
     this.stopForPanel();
-    this.overlay.show({ title: this.player.creative ? 'Blocos' : 'Mochila', text: this.player.creative ? 'Toque num bloco. Direito coloca.' : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: this.player.creative ? 'Blocos' : 'Mochila', text: this.player.creative ? (this.input.coarse ? 'Toque num bloco. O tijolo coloca.' : 'Toque num bloco. Direito coloca.') : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     this.overlay.addAction(this.player.creative ? 'Escolher blocos' : 'Abrir mochila', () => this.openCatalog(), { icon: '🧱' });
     if (this.player.creative) {
       this.overlay.addAction('Ideias para construir', () => this.showBuildIdeas(), { icon: '🏰' });
@@ -1952,7 +1957,7 @@ export class Game {
     this.logPanel('catalog');
     this.stopForPanel();
     const creative = this.player.creative;
-    this.overlay.show({ title: creative ? 'Blocos' : 'Mochila', text: creative ? 'Toque num bloco. Direito coloca. Esquerdo tira.' : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: creative ? 'Blocos' : 'Mochila', text: creative ? (this.input.coarse ? 'Toque num bloco. O tijolo coloca e a cenoura tira.' : 'Toque num bloco. Direito coloca. Esquerdo tira.') : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     if (creative) {
       for (const group of Object.keys(CATALOG_GROUPS)) this.overlay.addAction(group, () => this.openCatalog(group));
       const blocks = [...(CATALOG_GROUPS[category] ?? [])];
@@ -2240,7 +2245,7 @@ export class Game {
       for (const tip of PLAY_TIPS) {
         const card = document.createElement('p');
         card.className = 'tip-card';
-        card.textContent = `${tip.icon} ${tip.title}: ${tip.text}`;
+        card.textContent = `${tip.icon} ${tip.title}: ${tipLine(tip, this.input.coarse)}`;
         list.append(card);
       }
       this.overlay.addContent(list);
@@ -2267,17 +2272,26 @@ export class Game {
   }
 
   private prepareKidUi(): void {
+    try { this.input.coarse = window.matchMedia('(pointer: coarse), (hover: none)').matches; } catch { /* mouse play */ }
     const list = document.getElementById('play-tips-list');
-    if (list) fillPlayTips(list);
+    if (list) fillPlayTips(list, this.input.coarse);
     document.getElementById('play-tips-close')?.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       this.dismissTips();
     });
+    const tips = document.getElementById('play-tips');
+    const fold = document.getElementById('play-tips-fold');
+    if (tips && fold instanceof HTMLButtonElement) {
+      fold.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        foldTips(tips, fold);
+      });
+    }
     this.touchRoot = document.getElementById('touch-controls');
     if (this.touchRoot) bindTouchControls(this.input, this.touchRoot);
     try { this.tipsOpen = tipsOpen(globalThis.localStorage); } catch { this.tipsOpen = true; }
-    try { this.input.coarse = window.matchMedia('(pointer: coarse)').matches; } catch { /* mouse play */ }
   }
 
   private revealTips(): void {
