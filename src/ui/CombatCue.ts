@@ -19,6 +19,17 @@ const IDLE_CUE = 'Desvie e espere a abertura';
 export function spokenCue(cue: ActionCue | null): string | null {
   return cue && cue.text !== IDLE_CUE && cue.text !== SHELTER_CUE ? cue.text : null;
 }
+const KEY_LABEL = /^(Direito|Esquerdo|Espaço|C|B|H|P|F|W A S D)$/;
+
+/** Drops mouse and keyboard labels. The touch buttons already say what to do. */
+export function cueForTouch(cue: ActionCue): ActionCue {
+  let text = cue.text;
+  if (text === 'Colocar · esquerdo remove') text = 'Tijolo coloca. Cenoura pega.';
+  else if (text === 'Segure para pegar blocos') text = 'Segure a cenoura para pegar.';
+  else if (text === 'Pintar este bloco') text = 'Toque no tijolo para pintar.';
+  return { ...cue, key: KEY_LABEL.test(cue.key) ? '' : cue.key, text };
+}
+
 export function showActionCue(cue: ActionCue | null): void {
   const root=document.getElementById('action-label')!;
   const signature=JSON.stringify(cue);

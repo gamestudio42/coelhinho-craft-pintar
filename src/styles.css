@@ -508,14 +508,16 @@ body {
 /* Corner of the play HUD. The world stays clear of a floating seal. */
 .studio-mark-play {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  top: 8px;
+  right: 12px;
   z-index: 6;
+  width: 44px;
+  height: 44px;
 }
 
 .studio-mark-play img {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
 }
 
 #hud:not(.hidden) ~ #save-status,
@@ -660,6 +662,11 @@ body {
   opacity: 0.7;
   text-align: left;
 }
+.touch-only { display: none; }
+@media (pointer: coarse), (hover: none) {
+  .keys-only { display: none; }
+  .touch-only { display: list-item; }
+}
 
 kbd {
   display: inline-block;
@@ -741,8 +748,8 @@ kbd {
 #objective { max-width: min(80vw, 580px); font-size: 14px; }
 #seed-label { display: none; }
 #phase-label { top: 16px; }
-#play-help { top: 40px; }
-#flight-status { top: 64px; max-width: 280px; }
+#play-help { top: 96px; left: 16px; }
+#flight-status { top: 118px; left: 16px; max-width: 280px; }
 #slot-hint { font-size: 13px; opacity: .9; }
 .calm-effects .boss-bar-vulnerable { animation: none; }
 .calm-effects *, .calm-effects *::before, .calm-effects *::after { scroll-behavior: auto !important; }
@@ -1015,7 +1022,9 @@ kbd {
 #overlay-panel { touch-action: pan-y; }
 .play-extras .menu-quiet {
   grid-column: 1 / -1;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 16px;
   font-size: 15px;
   font-weight: 650;
   background: transparent;
@@ -1056,6 +1065,7 @@ kbd {
 }
 .play-tip-icon { flex: 0 0 auto; font-size: 28px; line-height: 1; }
 .play-tip > span:not(.play-tip-icon) { min-width: 0; }
+#play-tips-fold,
 #play-tips-close {
   width: 48px;
   height: 48px;
@@ -1064,10 +1074,18 @@ kbd {
   border: 3px solid #243044;
   background: #ffb347;
   color: #243044;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   cursor: pointer;
 }
+#play-tips.is-folded {
+  top: 8px;
+  left: auto;
+  right: 64px;
+  width: auto;
+}
+#play-tips.is-folded #play-tips-list,
+#play-tips.is-folded #play-tips-close { display: none; }
 .tip-list { display: grid; gap: 8px; width: 100%; }
 .tip-card {
   margin: 0;
@@ -1114,19 +1132,25 @@ kbd {
 }
 @media (max-width: 700px) {
   #play-tips-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .play-tip { font-size: 13px; min-height: 56px; }
+  .play-tip { font-size: 13px; min-height: 0; padding: 6px 8px; }
 }
-@media (max-width: 900px) and (min-height: 640px) {
-  #play-tips { top: 80px; left: 8px; right: 8px; width: auto; }
+@media (max-width: 900px) and (min-height: 560px) {
+  #play-tips { top: 76px; left: 8px; right: 8px; width: auto; }
   #hud:has(#paint-dock.is-open) #play-tips { top: 140px; }
-}
-@media (max-width: 400px) and (min-height: 640px) {
-  #play-tips-list { grid-template-columns: 1fr; }
+  #play-tips.is-folded,
+  #hud:has(#paint-dock.is-open) #play-tips.is-folded { top: 8px; left: auto; right: 64px; width: auto; }
+  #hint { bottom: 312px; max-width: min(62vw, 240px); }
 }
 @media (max-height: 520px) {
-  #play-tips { top: 68px; left: 140px; right: 196px; width: auto; }
+  #play-tips { top: 60px; left: 64px; right: 68px; width: auto; }
   #play-tips-list { display: flex; flex: 1; min-width: 0; grid-template-columns: none; overflow-x: auto; }
-  .play-tip { flex: 0 0 auto; min-height: 48px; }
+  .play-tip { flex: 1 1 0; min-width: 0; min-height: 44px; align-items: center; justify-content: center; white-space: nowrap; }
+  .play-tip-text { display: none; }
+  #hint { top: 46%; bottom: auto; max-width: min(40vw, 240px); }
+}
+@media (max-width: 900px), (pointer: coarse) {
+  #play-help, #flight-status { left: 84px; top: 14px; max-width: min(280px, calc(100vw - 160px)); }
+  #flight-status { top: 36px; }
 }
 @media (pointer: coarse) {
   #hotbar .slot { width: 40px; height: 42px; }

@@ -1,7 +1,10 @@
 require('./register.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { PLAY_TIPS, tipsOpen, hideTips, TIPS_STORAGE_KEY } = require('../src/ui/PlayTips.ts');
+const { PLAY_TIPS, foldTips, playHint, tipLine, tipsOpen, hideTips, TIPS_STORAGE_KEY } = require('../src/ui/PlayTips.ts');
+const { cueForTouch } = require('../src/ui/CombatCue.ts');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
 const { stickAxes, stickKeys } = require('../src/ui/TouchControls.ts');
 const { Input } = require('../src/core/Input.ts');
 const { Game } = require('../src/core/Game.ts');
@@ -13,12 +16,43 @@ test('the four play tips name build, paint, carrot and the bunny', () => {
     assert.ok(tip.title.length > 0 && tip.title.length < 16);
     assert.ok(tip.text.length > 0 && tip.text.length < 40);
   }
+  assert.equal(tipLine(PLAY_TIPS[0], false), 'Direito coloca.');
+  assert.equal(tipLine(PLAY_TIPS[0], true), 'Toque no tijolo.');
+  assert.equal(tipLine(PLAY_TIPS[2], true), 'Toque na cenoura.');
+  assert.equal(playHint('path', true), 'Siga o caminho amarelo até o quadro rosa.');
+  assert.equal(playHint('blocks', false).includes('Esc'), true);
+  assert.equal(playHint('blocks', true).includes('Esc'), false);
+  const touchCue = cueForTouch({ icon: '🧱', key: 'Direito', text: 'Colocar · esquerdo remove', kind: 'build' });
+  assert.equal(touchCue.key, '');
+  assert.equal(touchCue.text.includes('esquerdo'), false);
   const storage = new Map();
   const box = { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) };
   assert.equal(tipsOpen(box), true);
   hideTips(box);
   assert.equal(storage.get(TIPS_STORAGE_KEY), '1');
   assert.equal(tipsOpen(box), false);
+});
+
+test('tip cards fold down to one button and open again', () => {
+  let folded = false;
+  const root = { classList: { toggle(name) { assert.equal(name, 'is-folded'); folded = !folded; return folded; } } };
+  const attrs = {};
+  const button = { textContent: '−', setAttribute(name, value) { attrs[name] = value; } };
+  assert.equal(foldTips(root, button), true);
+  assert.equal(button.textContent, 'Dicas');
+  assert.equal(attrs['aria-expanded'], 'false');
+  assert.equal(foldTips(root, button), false);
+  assert.equal(button.textContent, '−');
+  assert.equal(attrs['aria-label'], 'Recolher dicas');
+});
+
+test('phone targets and the shortcut line stay clear of the palette button', () => {
+  const css = readFileSync(join(__dirname, '../src/styles.css'), 'utf8');
+  assert.match(css, /\.studio-mark-play img \{\s*width: 44px;\s*height: 44px;/);
+  assert.match(css, /\.play-extras \.menu-quiet \{[^}]*min-height: 44px;/);
+  assert.match(css, /#hint \{ bottom: 312px;/);
+  assert.match(css, /#play-help, #flight-status \{ left: 84px;/);
+  assert.doesNotMatch(css, /max-width: 400px\) and \(min-height: 640px\)/);
 });
 
 test('the touch stick points forward and to the side, and a small nudge does nothing', () => {
