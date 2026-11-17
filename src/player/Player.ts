@@ -77,6 +77,14 @@ export class Player {
     if (this.swing <= 0) this.swing = SWING_DURATION;
   }
 
+  /**
+   * Plays the swing out. Mining in a peaceful world never enters combat, so
+   * this clock has to run on every playing frame, not only during a fight.
+   */
+  advanceSwing(dt: number): void {
+    if (this.swing > 0) this.swing = Math.max(0, this.swing - dt);
+  }
+
   setSpawn(x: number, y: number, z: number): void {
     this.spawn.set(x, y, z);
   }

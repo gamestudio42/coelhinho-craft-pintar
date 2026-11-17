@@ -39,7 +39,6 @@ export class PlayerCombat {
 
   update(dt: number, input: Input): void {
     this.cooldown = Math.max(0, this.cooldown - dt);
-    this.player.swing = Math.max(0, this.player.swing - dt);
 
     this.player.getEyePosition(this.origin);
     this.player.getForward(this.direction);

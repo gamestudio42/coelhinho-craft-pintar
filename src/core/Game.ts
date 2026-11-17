@@ -1089,6 +1089,8 @@ export class Game {
     const walkSpeed = this.player.flying
       ? 0
       : Math.hypot(this.player.velocity.x, this.player.velocity.z);
+    // Combat is skipped in a peaceful world, but mining still starts a swing.
+    this.player.advanceSwing(dt);
     this.viewModel.setTier(this.player.hammerTier);
     this.viewModel.setFirstPerson(this.controller.view === CameraView.First);
     this.viewModel.update(dt, this.player.swing, SWING_DURATION, this.reducedMotion ? 0 : walkSpeed);
