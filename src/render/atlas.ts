@@ -315,32 +315,55 @@ export interface BlockAtlas {
   tileColors: THREE.Color[];
 }
 
-function averageTileColors(ctx: CanvasRenderingContext2D): THREE.Color[] {
-  const colors: THREE.Color[] = [];
+export interface PaintedAtlas {
+  rgba: Uint8ClampedArray;
+  /** Average colour of every tile, 0..1, including pixels the painter left clear. */
+  tileColors: Array<[number, number, number]>;
+}
 
-  for (const key of Object.keys(PAINTERS)) {
+/**
+ * Paints the atlas in memory. Tile colours come from this buffer, so opening
+ * the game never reads the canvas back with getImageData.
+ */
+export function paintBlockAtlas(): PaintedAtlas {
+  const rgba = new Uint8ClampedArray(ATLAS_SIZE_PX * ATLAS_SIZE_PX * 4);
+  const tileColors: Array<[number, number, number]> = [];
+
+  for (const [key, painter] of Object.entries(PAINTERS)) {
     const tile = Number(key);
-    const image = ctx.getImageData(
-      (tile % ATLAS_TILES_PER_ROW) * S,
-      Math.floor(tile / ATLAS_TILES_PER_ROW) * S,
-      S,
-      S,
-    );
+    const tileRgba = new Uint8ClampedArray(S * S * 4);
+    const rng = mulberry32(0x5eed + tile * 7919);
+
+    const set: SetPixel = (x, y, [r, g, b]) => {
+      const offset = (y * S + x) * 4;
+      tileRgba[offset] = r;
+      tileRgba[offset + 1] = g;
+      tileRgba[offset + 2] = b;
+      tileRgba[offset + 3] = 255;
+    };
+
+    painter(set, rng);
+
+    const originX = (tile % ATLAS_TILES_PER_ROW) * S;
+    const originY = Math.floor(tile / ATLAS_TILES_PER_ROW) * S;
+    for (let y = 0; y < S; y++) {
+      const src = y * S * 4;
+      rgba.set(tileRgba.subarray(src, src + S * 4), ((originY + y) * ATLAS_SIZE_PX + originX) * 4);
+    }
 
     let r = 0;
     let g = 0;
     let b = 0;
-    for (let i = 0; i < image.data.length; i += 4) {
-      r += image.data[i];
-      g += image.data[i + 1];
-      b += image.data[i + 2];
+    for (let i = 0; i < tileRgba.length; i += 4) {
+      r += tileRgba[i];
+      g += tileRgba[i + 1];
+      b += tileRgba[i + 2];
     }
-
-    const pixels = image.data.length / 4;
-    colors[tile] = new THREE.Color(r / pixels / 255, g / pixels / 255, b / pixels / 255);
+    const pixels = S * S;
+    tileColors[tile] = [r / pixels / 255, g / pixels / 255, b / pixels / 255];
   }
 
-  return colors;
+  return { rgba, tileColors };
 }
 
 /**
@@ -356,22 +379,10 @@ export function createBlockAtlas(): BlockAtlas {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2D canvas context unavailable');
 
-  for (const [key, painter] of Object.entries(PAINTERS)) {
-    const tile = Number(key);
-    const image = ctx.createImageData(S, S);
-    const rng = mulberry32(0x5eed + tile * 7919);
-
-    const set: SetPixel = (x, y, [r, g, b]) => {
-      const offset = (y * S + x) * 4;
-      image.data[offset] = r;
-      image.data[offset + 1] = g;
-      image.data[offset + 2] = b;
-      image.data[offset + 3] = 255;
-    };
-
-    painter(set, rng);
-    ctx.putImageData(image, (tile % ATLAS_TILES_PER_ROW) * S, Math.floor(tile / ATLAS_TILES_PER_ROW) * S);
-  }
+  const painted = paintBlockAtlas();
+  const image = ctx.createImageData(ATLAS_SIZE_PX, ATLAS_SIZE_PX);
+  image.data.set(painted.rgba);
+  ctx.putImageData(image, 0, 0);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.magFilter = THREE.NearestFilter;
@@ -380,5 +391,9 @@ export function createBlockAtlas(): BlockAtlas {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
 
-  return { texture, canvas, tileColors: averageTileColors(ctx) };
+  return {
+    texture,
+    canvas,
+    tileColors: painted.tileColors.map(([r, g, b]) => new THREE.Color(r, g, b)),
+  };
 }

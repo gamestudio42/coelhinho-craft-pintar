@@ -14,6 +14,7 @@ export interface MeshResponse {
   uvs: Float32Array;
   colors: Float32Array;
   indices: Uint32Array;
+  unlit: Float32Array;
   litIndexCount: number;
   waterPositions: Float32Array;
   waterNormals: Float32Array;
@@ -36,6 +37,7 @@ self.onmessage = (event: MessageEvent<MeshRequest>) => {
     uvs: mesh.uvs,
     colors: mesh.colors,
     indices: mesh.indices,
+    unlit: mesh.unlit,
     litIndexCount: mesh.litIndexCount,
     waterPositions: mesh.waterPositions,
     waterNormals: mesh.waterNormals,
@@ -51,6 +53,7 @@ self.onmessage = (event: MessageEvent<MeshRequest>) => {
     mesh.uvs.buffer,
     mesh.colors.buffer,
     mesh.indices.buffer,
+    mesh.unlit.buffer,
     mesh.waterPositions.buffer,
     mesh.waterNormals.buffer,
     mesh.waterUvs.buffer,

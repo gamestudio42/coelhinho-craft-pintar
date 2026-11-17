@@ -61,7 +61,9 @@ export interface SectionMesh {
   uvs: Float32Array;
   colors: Float32Array;
   indices: Uint32Array;
-  /** Index count of the lit group; the remainder is the unlit emissive group. */
+  /** 1 for vertices drawn without scene lights (glow, lava, torches). */
+  unlit: Float32Array;
+  /** Whole index buffer: glow shares this mesh instead of a second material group. */
   litIndexCount: number;
   /** Water lives on its own mesh so transparency cannot sort the solid terrain. */
   waterPositions: Float32Array;
@@ -79,6 +81,7 @@ export function emptyMesh(): SectionMesh {
     uvs: new Float32Array(0),
     colors: new Float32Array(0),
     indices: new Uint32Array(0),
+    unlit: new Float32Array(0),
     litIndexCount: 0,
     waterPositions: new Float32Array(0),
     waterNormals: new Float32Array(0),
@@ -110,6 +113,7 @@ function emitTorch(
   normals: number[],
   uvs: number[],
   colors: number[],
+  unlit: number[],
   indices: number[],
   vertexCount: number,
   x: number,
@@ -123,6 +127,7 @@ function emitTorch(
     normals,
     uvs,
     colors,
+    unlit,
     indices,
     vertexCount,
     cx - 0.06,
@@ -139,6 +144,7 @@ function emitTorch(
     normals,
     uvs,
     colors,
+    unlit,
     indices,
     vertexCount,
     cx - 0.1,
@@ -157,6 +163,7 @@ function emitBox(
   normals: number[],
   uvs: number[],
   colors: number[],
+  unlit: number[],
   indices: number[],
   vertexCount: number,
   x0: number,
@@ -242,6 +249,7 @@ function emitBox(
       normals.push(face.n[0], face.n[1], face.n[2]);
       uvs.push(uvCorners[i][0], uvCorners[i][1]);
       colors.push(shade, shade, shade);
+      unlit.push(1);
     }
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     vertexCount += 4;
@@ -307,8 +315,8 @@ export function buildSectionMesh(volume: Uint8Array): SectionMesh {
   const normals: number[] = [];
   const uvs: number[] = [];
   const colors: number[] = [];
-  const litIndices: number[] = [];
-  const emissiveIndices: number[] = [];
+  const unlit: number[] = [];
+  const indices: number[] = [];
   const waterPositions: number[] = [];
   const waterNormals: number[] = [];
   const waterUvs: number[] = [];
@@ -324,7 +332,7 @@ export function buildSectionMesh(volume: Uint8Array): SectionMesh {
         const block = volume[volumeIndex(x, y, z)];
         if (block === Block.Air) continue;
         if (block === Block.Torch) {
-          vertexCount = emitTorch(positions, normals, uvs, colors, emissiveIndices, vertexCount, x, y, z);
+          vertexCount = emitTorch(positions, normals, uvs, colors, unlit, indices, vertexCount, x, y, z);
           continue;
         }
         if (block === Block.Water) {
@@ -400,9 +408,10 @@ export function buildSectionMesh(volume: Uint8Array): SectionMesh {
             let brightness = face.shade * AO_BRIGHTNESS[ao];
             if (glow > 0) brightness += (1 - brightness) * glow * 0.85;
             colors.push(brightness, brightness, brightness);
+            unlit.push(emissive ? 1 : 0);
           }
 
-          const target = emissive ? emissiveIndices : litIndices;
+          const target = indices;
           const base = vertexCount;
           // Flip the diagonal when it would otherwise cut across the AO gradient.
           if (occlusion[0] + occlusion[2] > occlusion[1] + occlusion[3]) {
@@ -418,17 +427,16 @@ export function buildSectionMesh(volume: Uint8Array): SectionMesh {
 
   if (vertexCount === 0 && waterVertexCount === 0) return emptyMesh();
 
-  const indices = new Uint32Array(litIndices.length + emissiveIndices.length);
-  indices.set(litIndices, 0);
-  indices.set(emissiveIndices, litIndices.length);
+  const indexBuffer = new Uint32Array(indices);
 
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
-    indices,
-    litIndexCount: litIndices.length,
+    indices: indexBuffer,
+    unlit: new Float32Array(unlit),
+    litIndexCount: indexBuffer.length,
     waterPositions: new Float32Array(waterPositions),
     waterNormals: new Float32Array(waterNormals),
     waterUvs: new Float32Array(waterUvs),

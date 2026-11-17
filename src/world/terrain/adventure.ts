@@ -1,6 +1,6 @@
 import { createNoise2D, createNoise3D, type NoiseFunction2D, type NoiseFunction3D } from 'simplex-noise';
 
-import { hash2, mulberry32 } from '../../core/math.ts';
+import { hash2, hash3, mulberry32 } from '../../core/math.ts';
 import {
   ARENA,
   ARENA_STAND_Y,
@@ -29,14 +29,13 @@ export const SEA_LEVEL = 60;
 const LAVA_LEVEL = 8;
 const DIRT_DEPTH = 4;
 
-/** Procedural overworld: rolling hills, spaghetti caves, ore veins and the boss arena. */
+/** Procedural overworld: rolling hills, spaghetti caves, scattered ore and the boss arena. */
 export class AdventureGenerator {
   private readonly height2D: NoiseFunction2D;
   private readonly detail2D: NoiseFunction2D;
   private readonly caveA: NoiseFunction3D;
   private readonly caveB: NoiseFunction3D;
   private readonly cavern: NoiseFunction3D;
-  private readonly ore: NoiseFunction3D;
 
   constructor(readonly seed: number) {
     const rng = mulberry32(seed);
@@ -45,7 +44,6 @@ export class AdventureGenerator {
     this.caveA = createNoise3D(rng);
     this.caveB = createNoise3D(rng);
     this.cavern = createNoise3D(rng);
-    this.ore = createNoise3D(rng);
   }
 
   generate(chunk: Chunk): void {
@@ -128,12 +126,17 @@ export class AdventureGenerator {
     return wy < 34 && this.cavern(wx * 0.021, wy * 0.034, wz * 0.021) > 0.62;
   }
 
+  /**
+   * One integer hash per stone block. The slices keep the old depth bands and
+   * about the same share of each ore; hills, caves and structures stay put.
+   */
   private oreAt(wx: number, wy: number, wz: number): Block {
-    if (wy < 26 && this.ore(wx * 0.1 + 131, wy * 0.1, wz * 0.1) > 0.9) return Block.CrystalOre;
-    if (wy < 30 && this.ore(wx * 0.09 + 71, wy * 0.09, wz * 0.09) > 0.88) return Block.GoldOre;
-    if (wy < 54 && this.ore(wx * 0.08 + 31, wy * 0.08, wz * 0.08) > 0.84) return Block.IronOre;
-    if (wy < 74 && this.ore(wx * 0.07, wy * 0.07, wz * 0.07) > 0.8) return Block.CoalOre;
-    if (wy < 16 && this.ore(wx * 0.06 + 211, wy * 0.06, wz * 0.06) > 0.86) return Block.Gravel;
+    const roll = hash3(wx, wy, wz, this.seed ^ 0x05e);
+    if (wy < 26 && roll < 0.0053) return Block.CrystalOre;
+    if (wy < 30 && roll >= 0.0053 && roll < 0.0139) return Block.GoldOre;
+    if (wy < 54 && roll >= 0.0139 && roll < 0.0296) return Block.IronOre;
+    if (wy < 74 && roll >= 0.0296 && roll < 0.0533) return Block.CoalOre;
+    if (wy < 16 && roll >= 0.0533 && roll < 0.0644) return Block.Gravel;
     return Block.Stone;
   }
 

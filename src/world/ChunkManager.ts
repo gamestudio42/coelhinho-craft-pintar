@@ -52,7 +52,7 @@ export class ChunkManager {
   constructor(
     private readonly world: World,
     private readonly scene: THREE.Scene,
-    private readonly materials: [THREE.Material, THREE.Material],
+    private readonly terrainMaterial: THREE.Material,
     private readonly waterMaterial: THREE.Material,
   ) {
     const poolSize = Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 4) - 1));
@@ -382,13 +382,10 @@ export class ChunkManager {
       geometry.setAttribute('normal', new THREE.BufferAttribute(response.normals, 3));
       geometry.setAttribute('uv', new THREE.BufferAttribute(response.uvs, 2));
       geometry.setAttribute('color', new THREE.BufferAttribute(response.colors, 3));
+      geometry.setAttribute('unlit', new THREE.BufferAttribute(response.unlit, 1));
       geometry.setIndex(new THREE.BufferAttribute(response.indices, 1));
-
-      const emissiveCount = response.indices.length - response.litIndexCount;
-      if (response.litIndexCount > 0) geometry.addGroup(0, response.litIndexCount, 0);
-      if (emissiveCount > 0) geometry.addGroup(response.litIndexCount, emissiveCount, 1);
       geometry.computeBoundingSphere();
-      this.upsertMesh(this.meshes, response.key, geometry, this.materials, cx, cz, sy);
+      this.upsertMesh(this.meshes, response.key, geometry, this.terrainMaterial, cx, cz, sy);
     } else {
       this.removeMesh(this.meshes, response.key);
     }
