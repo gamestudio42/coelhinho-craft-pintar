@@ -213,8 +213,14 @@ export class PlayerModel {
   setTier(tier: HammerTier): void {
     if (tier === this.tier) return;
     this.tier = tier;
+    this.refreshHammer();
+  }
+
+  /** Swap in the Blender mesh once it has loaded, without rebuilding it per tier. */
+  refreshHammer(): void {
+    const next = createHammerGeometry(this.tier, { glove: false, gripAtOrigin: true });
     this.hammer.geometry.dispose();
-    this.hammer.geometry = createHammerGeometry(tier, { glove: false, gripAtOrigin: true });
+    this.hammer.geometry = next;
   }
 
   setHeld(block: number | null): void {
