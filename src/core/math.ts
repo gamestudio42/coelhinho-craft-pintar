@@ -18,6 +18,18 @@ export function hash2(x: number, z: number, seed: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+/** Stable hash of a block. Cheap stand-in for a 3D noise sample. */
+export function hash3(x: number, y: number, z: number, seed: number): number {
+  let h =
+    Math.imul(x, 0x27d4eb2d) ^
+    Math.imul(y, 0x165667b1) ^
+    Math.imul(z, 0x9e3779b1) ^
+    Math.imul(seed, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
 /** Wraps an angle in radians into (-PI, PI]. */
 export function wrapAngle(angle: number): number {
   const tau = Math.PI * 2;

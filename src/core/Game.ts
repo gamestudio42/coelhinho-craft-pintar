@@ -248,17 +248,13 @@ export class Game {
     this.scene.add(this.lamp);
 
     const terrainMaterial = createTerrainMaterial(this.atlas);
-    const emissiveMaterial = new THREE.MeshBasicMaterial({
-      map: this.atlas.texture,
-      vertexColors: true,
-    });
     const waterMaterial = createWaterMaterial(this.atlas);
 
     this.world = new World(new TerrainGenerator(this.seed));
     this.oneBlock = new OneBlock(this.seed);
     this.oneBlock.allowMobs = false;
     document.documentElement.classList.add('peaceful');
-    this.chunks = new ChunkManager(this.world, this.scene, [terrainMaterial, emissiveMaterial], waterMaterial);
+    this.chunks = new ChunkManager(this.world, this.scene, terrainMaterial, waterMaterial);
     this.particles = new ParticleSystem(this.scene);
     this.torchLights = new TorchLights(this.scene);
     this.entities = new EntityManager(this.scene);
