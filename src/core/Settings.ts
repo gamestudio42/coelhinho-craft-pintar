@@ -1,3 +1,5 @@
+import { isPhoneDevice, readDeviceFacts } from './device.ts';
+
 const STORAGE_KEY = 'mineboss.settings';
 export const BASE_LOOK_SENSITIVITY = 0.0022;
 export const QUALITY = {
@@ -22,21 +24,31 @@ export const DEFAULT_SETTINGS: StoredSettings = {
 function numberIn(value: unknown, fallback: number, min: number, max: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
 }
+export function explicitQuality(value: unknown): StoredSettings['quality'] | null {
+  return value === 'light' || value === 'balanced' || value === 'high' ? value : null;
+}
+
+/** A saved choice wins. A phone with nothing saved starts on Leve. */
+export function qualityFor(saved: unknown, phone: boolean): StoredSettings['quality'] {
+  return explicitQuality(saved) ?? (phone ? 'light' : 'balanced');
+}
+
 export function loadSettings(): StoredSettings {
+  const phone = isPhoneDevice(readDeviceFacts());
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<StoredSettings> | null;
-    if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_SETTINGS };
+    if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_SETTINGS, quality: qualityFor(undefined, phone) };
     return {
       volume: numberIn(parsed.volume, .45, 0, 1),
       muted: parsed.muted === true,
       sensitivity: numberIn(parsed.sensitivity, 1, .4, 2.2),
       reducedMotion: parsed.reducedMotion === true,
       reducedEffects: parsed.reducedEffects === true,
-      quality: parsed.quality === 'light' || parsed.quality === 'high' ? parsed.quality : 'balanced',
+      quality: qualityFor(parsed.quality, phone),
       narrator: parsed.narrator !== false,
       music: parsed.music !== false,
     };
-  } catch { return { ...DEFAULT_SETTINGS }; }
+  } catch { return { ...DEFAULT_SETTINGS, quality: qualityFor(undefined, phone) }; }
 }
 export function saveSettings(settings: StoredSettings): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
