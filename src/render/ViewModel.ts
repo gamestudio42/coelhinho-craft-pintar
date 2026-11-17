@@ -216,8 +216,14 @@ export class ViewModel {
   setTier(tier: HammerTier): void {
     if (tier === this.tier) return;
     this.tier = tier;
+    this.refreshHammer();
+  }
+
+  /** Swap in the Blender mesh once it has loaded, without rebuilding it per tier. */
+  refreshHammer(): void {
+    const next = createHammerGeometry(this.tier);
     this.hammer.geometry.dispose();
-    this.hammer.geometry = createHammerGeometry(tier);
+    this.hammer.geometry = next;
   }
 
   private applyVisibility(): void {

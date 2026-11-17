@@ -17,6 +17,7 @@ import { BuildHistory } from '../player/BuildHistory.ts';
 import { lessonCaption, updateBuildLesson } from '../ui/BuildLesson.ts';
 import { BlockInteraction } from '../player/BlockInteraction.ts';
 import { HAMMER, HammerTier, PLATE_COST, PLATES, PlateTier, UPGRADE_COST } from '../player/Hammer.ts';
+import { hammerModelsReady, preloadHammerModels } from '../render/HammerModel.ts';
 import { Pet, petName, type PetHome, type PetKind } from '../entities/Pet.ts';
 import { IronGolem, Villager } from '../entities/VillageFolk.ts';
 import { Player, PLAYER_REACH, SWING_DURATION } from '../player/Player.ts';
@@ -273,6 +274,11 @@ export class Game {
 
     this.viewModel = new ViewModel(this.camera, this.atlas);
     this.playerModel = new PlayerModel(this.atlas);
+    void preloadHammerModels().then(() => {
+      if (!hammerModelsReady()) return;
+      this.viewModel.refreshHammer();
+      this.playerModel.refreshHammer();
+    });
     this.scene.add(this.playerModel.root);
     this.hud = new Hud(this.atlas);
     this.palette = PaintPalette.fromDocument();
