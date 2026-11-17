@@ -141,7 +141,7 @@ function integratedGame(mode='adventure',creative=true) {
  g.arena=new BossArena(g.entities,callbacks);g.ruin=new RuinEncounter(g.entities,callbacks);g.grove=new GroveEncounter(g.entities,callbacks);
  g.particles={clear(){},burst(){}};g.torchLights={clear(){}};g.sfx={play(){}};g.viewModel={setTier(){},setPlates(){}};
  g.input={releaseLock(){},wasPressed:()=>false,isDown:()=>false};
- g.chunks={reset(){},preload(x,z,r){for(let cx=Math.floor(x/16)-r;cx<=Math.floor(x/16)+r;cx++)for(let cz=Math.floor(z/16)-r;cz<=Math.floor(z/16)+r;cz++)g.world.ensureChunk(cx,cz);}};
+ g.chunks={reset(){},preload(x,z,r){for(let cx=Math.floor(x/16)-r;cx<=Math.floor(x/16)+r;cx++)for(let cz=Math.floor(z/16)-r;cz<=Math.floor(z/16)+r;cz++)g.world.ensureChunk(cx,cz);},preloadSpawn(x,z){this.preload(x,z,1);}};
  g.controller=new PlayerController(g.player,g.world,new THREE.PerspectiveCamera());
  g.context={dt:1/60,elapsed:0,world:g.world,player:g.player,entities:g.entities,particles:g.particles,sfx:g.sfx,atlas:{tileColors:[]}};
  g.persistSave=()=>{g.lastSave=g.snapshotRun(false);};g.stopForPanel=()=>{g.state='paused';};g.startPlaying=()=>{g.state='playing';};

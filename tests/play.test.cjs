@@ -106,7 +106,7 @@ test('OneBlock warns before spawning, and gentle Ember never creates lava',()=>{
  w.setBlock(1,72,0,Block.Dirt);core.update(1,w,entities);assert.equal(entities.entities.length,1);
 });
 test('unsafe spawn relocates without deleting player blocks',()=>{
- const g=Object.create(Game.prototype);g.mode='oneblock';g.world=world();g.player=new Player();g.chunks={preload(){}};
+ const g=Object.create(Game.prototype);g.mode='oneblock';g.world=world();g.player=new Player();g.chunks={preload(){},preloadSpawn(){}};
  g.player.setSpawn(0.5,73,0.5);g.world.setBlock(0,73,0,Block.Planks);g.ensureSafeSpawn();
  assert.equal(g.world.getBlock(0,73,0),Block.Planks);assert.equal(g.player.spawn.y,74);
 });

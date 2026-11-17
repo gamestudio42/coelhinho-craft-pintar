@@ -66,6 +66,7 @@ import { ENTRANCE_SPAWN } from '../world/arena.ts';
 import { pickGuideHint, shownFromSave } from '../player/Guide.ts';
 import { loadSave, loadPreviousSave, parseSave, saveRun, SAVE_VERSION, type SavedRun } from './Save.ts';
 import { SessionLog, type SessionMarkKind, type SessionPanelId } from './SessionLog.ts';
+import { isTouchDevice, readDeviceFacts } from './device.ts';
 import { loadSettings, saveSettings, QUALITY, type StoredSettings } from './Settings.ts';
 import { albumCount, albumPanel, albumSections, buildFoundText, type AlbumSection } from '../ui/Album.ts';
 import { buildIdeaPanel, BUILD_IDEAS } from '../ui/BuildIdeas.ts';
@@ -219,7 +220,8 @@ export class Game {
     this.player.peaceful = true;
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      // MSAA is a fill-rate cost phones feel on every frame. A mouse keeps it.
+      antialias: !isTouchDevice(readDeviceFacts()),
       powerPreference: 'high-performance',
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -511,7 +513,7 @@ export class Game {
     this.syncGeneratorUnlocks();
     const x = this.mode === 'adventure' ? 10 : SPAWN_X;
     const z = this.mode === 'adventure' ? 10 : SPAWN_Z;
-    this.chunks.preload(x, z, 2);
+    this.chunks.preloadSpawn(x + 0.5, z + 0.5);
 
     this.player.setSpawn(x + 0.5, this.mode === 'adventure' ? this.world.surfaceY(x, z) + 1 : ISLAND_Y + 1, z + 0.5);
     this.player.respawn();
@@ -1675,7 +1677,7 @@ export class Game {
     this.player.flying = false;
     this.player.swing = 0;
 
-    this.chunks.preload(save.player.x, save.player.z, 2);
+    this.chunks.preloadSpawn(save.player.x, save.player.z);
     if (this.world.generator.shrineUnlocked && !this.arena.defeated) this.arena.rebuildAltar(this.world);
     if (this.world.generator.ruinUnlocked && !this.ruin.defeated) this.ruin.rebuildStatue(this.world);
     if (this.mode === 'oneblock') {
@@ -2317,7 +2319,7 @@ export class Game {
     this.setCreative(false);
     this.buildHistory.clear(); this.buildLesson=0;
     const x=RUIN_COURTYARD.centerX+7.5,z=RUIN_COURTYARD.centerZ+7.5;
-    this.chunks.preload(x,z,2);
+    this.chunks.preloadSpawn(x, z);
     this.player.setSpawn(x,this.world.generator.surfaceHeight(x,z)+1,z);
     this.ensureSafeSpawn();this.player.respawn();this.player.yaw=Math.PI/2;
     this.practice = new BossPractice(this.player.position.x-3,this.player.position.y,this.player.position.z,
@@ -2452,7 +2454,7 @@ export class Game {
 
   private ensureSafeSpawn(): void {
     const spawn = this.player.spawn;
-    this.chunks.preload(spawn.x, spawn.z, 2);
+    this.chunks.preloadSpawn(spawn.x, spawn.z);
     const safe = (x: number, y: number, z: number): boolean => {
       const floor = this.world.getBlock(x, y - 1, z);
       return isSolid(floor) && getBlockDef(floor).contactDamage === 0 &&
@@ -2565,7 +2567,7 @@ export class Game {
     this.syncGeneratorUnlocks();
     this.chunks.regenerateWhere(test);
     this.chunks.preload(x, z, Math.max(2, Math.ceil(radius / 16)));
-    this.chunks.preload(this.player.position.x, this.player.position.z, 2);
+    this.chunks.preloadSpawn(this.player.position.x, this.player.position.z);
   }
 
   private sessionContext() {

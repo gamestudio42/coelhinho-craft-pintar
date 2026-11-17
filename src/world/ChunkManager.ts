@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CHUNK_SIZE, SECTION_COUNT, SECTION_HEIGHT, chunkKey, sectionKey } from './Chunk.ts';
 import { VOLUME_LENGTH, volumeIndex } from './meshing/mesher.ts';
 import type { MeshRequest, MeshResponse } from './meshing/mesher.worker.ts';
+import { idleChunkBudget, spawnColumns } from './spawnArea.ts';
 import type { World } from './World.ts';
 
 const RENDER_DISTANCE = 8;
@@ -42,6 +43,11 @@ export class ChunkManager {
   private discardBeforeJobId = 0;
   private lastChunkX = Number.NaN;
   private lastChunkZ = Number.NaN;
+  /** Where streaming should keep filling after the short spawn preload. */
+  private focusCx = Number.NaN;
+  private focusCz = Number.NaN;
+  private streamEpoch = 0;
+  private idleQueued = false;
 
   constructor(
     private readonly world: World,
@@ -87,7 +93,21 @@ export class ChunkManager {
     this.lastChunkX = this.lastChunkZ = Number.NaN;
   }
 
-  /** Generates and meshes everything around a point, used before the first frame. */
+  /**
+   * Ground under the player, generated and sent to the mesher before the click returns.
+   * The rest of the view arrives one column per frame, plus a little more when the browser is idle.
+   */
+  preloadSpawn(x: number, z: number): void {
+    const area = spawnColumns(x, z);
+    this.focusCx = Math.floor(x / CHUNK_SIZE);
+    this.focusCz = Math.floor(z / CHUNK_SIZE);
+    for (const [cx, cz] of area.generate) this.world.ensureChunk(cx, cz);
+    for (const [cx, cz] of area.mesh) this.enqueueChunk(cx, cz);
+    this.dispatch();
+    this.scheduleIdle();
+  }
+
+  /** Generates and meshes a disc, used when a distant structure has to appear at once. */
   preload(x: number, z: number, radius: number): void {
     const cx = Math.floor(x / CHUNK_SIZE);
     const cz = Math.floor(z / CHUNK_SIZE);
@@ -110,6 +130,8 @@ export class ChunkManager {
   update(playerX: number, playerZ: number): void {
     const cx = Math.floor(playerX / CHUNK_SIZE);
     const cz = Math.floor(playerZ / CHUNK_SIZE);
+    this.focusCx = cx;
+    this.focusCz = cz;
 
     this.generateAround(cx, cz);
     this.meshAround(cx, cz);
@@ -161,6 +183,10 @@ export class ChunkManager {
 
   /** Tears down streamed meshes so a new run can generate the world from scratch. */
   reset(): void {
+    this.streamEpoch += 1;
+    this.idleQueued = false;
+    this.focusCx = Number.NaN;
+    this.focusCz = Number.NaN;
     this.discardBeforeJobId = this.nextJobId;
     this.queue.length = 0;
     this.queued.clear();
@@ -179,18 +205,37 @@ export class ChunkManager {
     this.clearMeshMap(this.waterMeshes);
   }
 
-  private generateAround(cx: number, cz: number): void {
-    let budget = MAX_GENERATED_PER_FRAME;
+  private generateAround(cx: number, cz: number, budget = MAX_GENERATED_PER_FRAME): number {
+    let left = budget;
 
     for (const { dx, dz } of this.offsets) {
       if (Math.hypot(dx, dz) > this.renderDistance + GENERATE_MARGIN) break;
-      if (budget === 0) return;
+      if (left === 0) break;
       const x = cx + dx;
       const z = cz + dz;
       if (this.world.chunks.has(chunkKey(x, z))) continue;
       this.world.ensureChunk(x, z);
-      budget -= 1;
+      left -= 1;
     }
+
+    return budget - left;
+  }
+
+  private scheduleIdle(): void {
+    if (this.idleQueued || !Number.isFinite(this.focusCx)) return;
+    this.idleQueued = true;
+    const epoch = this.streamEpoch;
+    const run = (deadline: { timeRemaining(): number; didTimeout: boolean }) => this.onIdle(epoch, deadline);
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run);
+    else setTimeout(() => run({ didTimeout: false, timeRemaining: () => 8 }), 48);
+  }
+
+  private onIdle(epoch: number, deadline: { timeRemaining(): number; didTimeout: boolean }): void {
+    if (epoch !== this.streamEpoch) return;
+    this.idleQueued = false;
+    if (!Number.isFinite(this.focusCx)) return;
+    const made = this.generateAround(this.focusCx, this.focusCz, idleChunkBudget(deadline.timeRemaining(), deadline.didTimeout));
+    if (made > 0) this.scheduleIdle();
   }
 
   private meshAround(cx: number, cz: number): void {
