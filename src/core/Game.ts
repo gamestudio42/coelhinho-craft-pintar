@@ -67,7 +67,7 @@ import { ENTRANCE_SPAWN } from '../world/arena.ts';
 import { pickGuideHint, shownFromSave } from '../player/Guide.ts';
 import { loadSave, loadPreviousSave, parseSave, saveRun, SAVE_VERSION, type SavedRun } from './Save.ts';
 import { SessionLog, type SessionMarkKind, type SessionPanelId } from './SessionLog.ts';
-import { isTouchDevice, readDeviceFacts } from './device.ts';
+import { isTouchDevice, readDeviceFacts, usesTouchControls, usesTouchCopy } from './device.ts';
 import { loadSettings, saveSettings, QUALITY, type StoredSettings } from './Settings.ts';
 import { albumCount, albumPanel, albumSections, buildFoundText, type AlbumSection } from '../ui/Album.ts';
 import { buildIdeaPanel, BUILD_IDEAS } from '../ui/BuildIdeas.ts';
@@ -181,6 +181,8 @@ export class Game {
   private readonly palette: PaintPalette;
   private readonly overlay = new Overlay();
   private tipsOpen = true;
+  /** Finger wording. Separate from `input.coarse`, which owns the stick and pointer lock. */
+  private touchCopy = false;
   private touchRoot: HTMLElement | null = null;
   private readonly session = new SessionLog();
 
@@ -286,7 +288,7 @@ export class Game {
       this.interaction.paintMode = this.palette.mode;
       this.interaction.bucketMode = this.palette.bucket;
       this.interaction.paintBlock = this.palette.color;
-      const hint = this.palette.bucket ? 'O balde pinta vários iguais.' : this.palette.mode ? (this.input.coarse ? 'Toque no tijolo para pintar.' : 'Direito pinta.') : 'Agora é construir.';
+      const hint = this.palette.bucket ? 'O balde pinta vários iguais.' : this.palette.mode ? (this.touchCopy ? 'Toque no tijolo para pintar.' : 'Direito pinta.') : 'Agora é construir.';
       this.hud.showHint(hint, 2.4);
     };
     this.interaction.onFilled = (count, capped) => {
@@ -467,7 +469,7 @@ export class Game {
     this.interaction.onBedFound = () => {
       if (this.hintedBed) return;
       this.hintedBed = true;
-      this.hud.showHint(playHint('bed', this.input.coarse), 3.8);
+      this.hud.showHint(playHint('bed', this.touchCopy), 3.8);
     };
     this.interaction.onChestOpened = () => {
       const loot = chestLoot(this.mode === 'oneblock' ? this.oneBlock.phaseIndex : 0);
@@ -630,17 +632,17 @@ export class Game {
     if (this.inEncounter || this.practice) {
       this.hud.hideHint();
     } else if (this.player.peaceful) {
-      this.hud.showHint(playHint('path', this.input.coarse), 5);
+      this.hud.showHint(playHint('path', this.touchCopy), 5);
     } else if (this.mode === 'oneblock' && !this.oneBlock.ruinUnlocked) {
-      this.hud.showHint(playHint('island', this.input.coarse), 5);
+      this.hud.showHint(playHint('island', this.touchCopy), 5);
     } else if (this.player.creative) {
-      this.hud.showHint(playHint('blocks', this.input.coarse), 4);
+      this.hud.showHint(playHint('blocks', this.touchCopy), 4);
     } else if (!this.arena.ruinFound) {
       this.rememberHint('ruin');
       this.hud.showHint('Encontre o Sentinela: siga a bússola ou use Visitar no menu', 4.2);
     } else if (!this.player.creative && !this.hintedBed && this.player.inventory.slots.some((slot) => slot.block === Block.Bed)) {
       this.hintedBed = true;
-      this.hud.showHint(playHint('bed', this.input.coarse), 3.8);
+      this.hud.showHint(playHint('bed', this.touchCopy), 3.8);
     }
     this.persistSave();
   }
@@ -1128,7 +1130,7 @@ export class Game {
   }
 
   private updateHud(dt: number): void {
-    this.hud.touch = this.input.coarse;
+    this.hud.touch = this.touchCopy;
     this.hud.update(
       dt,
       this.player.inventory,
@@ -1159,16 +1161,16 @@ export class Game {
       flying: this.player.flying,
       fighting,
       tutorialDone: this.tutorialDone,
-      coarse: this.input.coarse,
+      coarse: this.touchCopy,
       elapsed: this.elapsed,
       oneBlockMark: `${this.oneBlock.label} · ${oneBlockMark}`,
     });
     this.hud.setPhase(chrome.phase);
     const lesson = fighting ? 0 : this.buildLesson;
-    updateBuildLesson(lesson, this.input.coarse);
+    updateBuildLesson(lesson, this.touchCopy);
     if (lesson !== this.spokenLesson) {
       this.spokenLesson = lesson;
-      if (lesson) this.narrator?.say(lessonCaption(lesson, this.input.coarse), 0);
+      if (lesson) this.narrator?.say(lessonCaption(lesson, this.touchCopy), 0);
     }
     setText('flight-status', chrome.flight);
     setText('play-help', chrome.playHelp);
@@ -1231,7 +1233,7 @@ export class Game {
       this.narrator?.say(line, FIGHT_CUE_REPEAT_SECONDS);
     }
     const showCue = (next: Parameters<typeof showActionCue>[0]): void => {
-      showActionCue(next && this.input.coarse ? cueForTouch(next) : next);
+      showActionCue(next && this.touchCopy ? cueForTouch(next) : next);
     };
     if (cue) showCue(cue);
     else if (this.controller.edgeBlocked) showCue({ icon: '✋', key: 'Espaço', text: 'Proteção de borda: queda à frente', kind: 'warning' });
@@ -1272,12 +1274,12 @@ export class Game {
       return;
     }
     if (this.player.creative && !this.inEncounter) {
-      this.setGuideObjective(this.guidance ? (this.input.coarse ? 'Construa do seu jeito' : 'Construa do seu jeito · Esc: sua base e chefões') : null);
+      this.setGuideObjective(this.guidance ? (this.touchCopy ? 'Construa do seu jeito' : 'Construa do seu jeito · Esc: sua base e chefões') : null);
       this.hud.compass.update(false, 0, '');
       return;
     }
     if (!this.guidance && !this.inEncounter) {
-      this.setGuideObjective(this.input.coarse ? 'Construa do seu jeito' : 'Construa do seu jeito · B: blocos e mochila');
+      this.setGuideObjective(this.touchCopy ? 'Construa do seu jeito' : 'Construa do seu jeito · B: blocos e mochila');
       this.hud.compass.update(false, 0, '');
       return;
     }
@@ -1888,7 +1890,7 @@ export class Game {
 
   private showBuildingTools(): void {
     this.stopForPanel();
-    this.overlay.show({ title: this.player.creative ? 'Blocos' : 'Mochila', text: this.player.creative ? (this.input.coarse ? 'Toque num bloco. O tijolo coloca.' : 'Toque num bloco. Direito coloca.') : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: this.player.creative ? 'Blocos' : 'Mochila', text: this.player.creative ? (this.touchCopy ? 'Toque num bloco. O tijolo coloca.' : 'Toque num bloco. Direito coloca.') : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     this.overlay.addAction(this.player.creative ? 'Escolher blocos' : 'Abrir mochila', () => this.openCatalog(), { icon: '🧱' });
     if (this.player.creative) {
       this.overlay.addAction('Ideias para construir', () => this.showBuildIdeas(), { icon: '🏰' });
@@ -1963,7 +1965,7 @@ export class Game {
     this.logPanel('catalog');
     this.stopForPanel();
     const creative = this.player.creative;
-    this.overlay.show({ title: creative ? 'Blocos' : 'Mochila', text: creative ? (this.input.coarse ? 'Toque num bloco. O tijolo coloca e a cenoura tira.' : 'Toque num bloco. Direito coloca. Esquerdo tira.') : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
+    this.overlay.show({ title: creative ? 'Blocos' : 'Mochila', text: creative ? (this.touchCopy ? 'Toque num bloco. O tijolo coloca e a cenoura tira.' : 'Toque num bloco. Direito coloca. Esquerdo tira.') : 'Toque num material.', button: 'Voltar ao jogo', secondary: 'Menu', showControls: false }, () => this.startPlaying(), () => this.showPaused());
     if (creative) {
       for (const group of Object.keys(CATALOG_GROUPS)) this.overlay.addAction(group, () => this.openCatalog(group));
       const blocks = [...(CATALOG_GROUPS[category] ?? [])];
@@ -2251,7 +2253,7 @@ export class Game {
       for (const tip of PLAY_TIPS) {
         const card = document.createElement('p');
         card.className = 'tip-card';
-        card.textContent = `${tip.icon} ${tip.title}: ${tipLine(tip, this.input.coarse)}`;
+        card.textContent = `${tip.icon} ${tip.title}: ${tipLine(tip, this.touchCopy)}`;
         list.append(card);
       }
       this.overlay.addContent(list);
@@ -2278,9 +2280,12 @@ export class Game {
   }
 
   private prepareKidUi(): void {
-    try { this.input.coarse = window.matchMedia('(pointer: coarse), (hover: none)').matches; } catch { /* mouse play */ }
+    this.syncTouchMode();
+    for (const query of ['(pointer: coarse)', '(hover: none)', '(any-pointer: coarse)']) {
+      try { window.matchMedia(query).addEventListener('change', () => this.syncTouchMode()); } catch { /* no matchMedia */ }
+    }
     const list = document.getElementById('play-tips-list');
-    if (list) fillPlayTips(list, this.input.coarse);
+    if (list) fillPlayTips(list, this.touchCopy);
     document.getElementById('play-tips-close')?.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -2432,7 +2437,8 @@ export class Game {
     this.home = { x: p.x, y: p.y, z: p.z };
     this.player.spawn.copy(p);
     this.persistSave();
-    this.startPlaying(); this.hud.showHint('Sua base está marcada! Esc: Voltar à base.', 5);
+    this.startPlaying();
+    this.hud.showHint(this.touchCopy ? 'Sua base está marcada! Abra a pausa para voltar.' : 'Sua base está marcada! Esc: Voltar à base.', 5);
   }
 
   private goHome(): void {
@@ -2658,11 +2664,23 @@ export class Game {
     }, () => this.showSessionPanel());
   }
 
+  /** Touch words follow the finger and the handheld window. The mouse still looks on a desktop. */
+  private syncTouchMode(): void {
+    let facts;
+    try { facts = readDeviceFacts(); } catch { return; }
+    this.touchCopy = usesTouchCopy(facts);
+    if (usesTouchControls(facts)) this.input.coarse = true;
+    document.documentElement.classList.toggle('touch-play', this.touchCopy);
+    const list = document.getElementById('play-tips-list');
+    if (list) fillPlayTips(list, this.touchCopy);
+  }
+
   private readonly resize = (): void => {
     const width = window.innerWidth;
     const height = window.innerHeight;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    this.syncTouchMode();
   };
 }

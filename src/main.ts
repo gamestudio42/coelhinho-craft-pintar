@@ -1,4 +1,5 @@
 import { Game } from './core/Game.ts';
+import { registerServiceWorker } from './pwa/register.ts';
 import { BootScreen } from './ui/BootScreen.ts';
 
 declare global {
@@ -11,6 +12,8 @@ declare global {
 function frame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
+
+registerServiceWorker();
 
 async function boot(): Promise<void> {
   const splash = BootScreen.fromDocument();
