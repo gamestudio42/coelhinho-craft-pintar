@@ -12,10 +12,13 @@ export interface PlayTip {
 
 export const PLAY_TIPS: readonly PlayTip[] = [
   { id: 'build', icon: '🧱', title: 'Construir', text: 'Direito coloca.', touch: 'Toque no tijolo.' },
-  { id: 'paint', icon: '🎨', title: 'Pintar', text: 'Toque na cor ou no balde.' },
+  { id: 'paint', icon: '🎨', title: 'Pintar', text: 'Toque na cor ou no balde.', touch: 'Toque na cor ou no balde.' },
   { id: 'pick', icon: '🥕', title: 'Cenoura', text: 'Esquerdo pega.', touch: 'Toque na cenoura.' },
-  { id: 'feed', icon: '🐰', title: 'Amiguinhos', text: 'Olhe neles e dê a cenoura.' },
+  { id: 'feed', icon: '🐰', title: 'Amiguinhos', text: 'Olhe neles e dê a cenoura.', touch: 'Olhe neles e dê a cenoura.' },
 ];
+
+/** Mouse buttons and keyboard shortcuts. Touch copy must not contain these. */
+export const POINTER_WORDS = /Direito|Esquerdo|Esc\b|\bC:|\bH:|\bB:|W A S D|botão direito|botão esquerdo/i;
 
 /** Mouse wording on a desktop, touch wording on a phone or tablet. */
 export function tipLine(tip: PlayTip, coarse: boolean): string {

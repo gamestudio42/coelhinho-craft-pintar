@@ -1,7 +1,8 @@
 require('./register.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { PLAY_TIPS, foldTips, playHint, tipLine, tipsOpen, hideTips, TIPS_STORAGE_KEY } = require('../src/ui/PlayTips.ts');
+const { PLAY_TIPS, POINTER_WORDS, foldTips, playHint, tipLine, tipsOpen, hideTips, TIPS_STORAGE_KEY } = require('../src/ui/PlayTips.ts');
+const { usesTouchCopy, usesTouchControls } = require('../src/core/device.ts');
 const { cueForTouch } = require('../src/ui/CombatCue.ts');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
@@ -18,10 +19,13 @@ test('the four play tips name build, paint, carrot and the bunny', () => {
   }
   assert.equal(tipLine(PLAY_TIPS[0], false), 'Direito coloca.');
   assert.equal(tipLine(PLAY_TIPS[0], true), 'Toque no tijolo.');
+  assert.equal(tipLine(PLAY_TIPS[1], false), 'Toque na cor ou no balde.');
   assert.equal(tipLine(PLAY_TIPS[2], true), 'Toque na cenoura.');
   assert.equal(playHint('path', true), 'Siga o caminho amarelo até o quadro rosa.');
   assert.equal(playHint('blocks', false).includes('Esc'), true);
   assert.equal(playHint('blocks', true).includes('Esc'), false);
+  for (const tip of PLAY_TIPS) assert.equal(POINTER_WORDS.test(tipLine(tip, true)), false, tip.id);
+  for (const id of ['path', 'island', 'blocks', 'bed']) assert.equal(POINTER_WORDS.test(playHint(id, true)), false, id);
   const touchCue = cueForTouch({ icon: '🧱', key: 'Direito', text: 'Colocar · esquerdo remove', kind: 'build' });
   assert.equal(touchCue.key, '');
   assert.equal(touchCue.text.includes('esquerdo'), false);
@@ -48,11 +52,32 @@ test('tip cards fold down to one button and open again', () => {
 
 test('phone targets and the shortcut line stay clear of the palette button', () => {
   const css = readFileSync(join(__dirname, '../src/styles.css'), 'utf8');
+  assert.match(css, /\.studio-mark img \{\s*display: block;\s*width: 44px;\s*height: 44px;/);
   assert.match(css, /\.studio-mark-play img \{\s*width: 44px;\s*height: 44px;/);
-  assert.match(css, /\.play-extras \.menu-quiet \{[^}]*min-height: 44px;/);
-  assert.match(css, /#hint \{ bottom: 312px;/);
-  assert.match(css, /#play-help, #flight-status \{ left: 84px;/);
+  assert.match(css, /\.play-extras \.menu-quiet \{[^}]*\n\s*height: 44px;/);
+  assert.match(css, /#hint \{\s*top: 132px;/);
+  assert.match(css, /#play-tips \{\s*top: 8px;\s*left: 96px;/);
+  assert.match(css, /#play-help, #flight-status \{ top: 84px; left: 16px;/);
+  assert.match(css, /#play-tips \{ top: 8px; left: 80px;/);
+  assert.doesNotMatch(css, /#hint \{ bottom: 312px;/);
   assert.doesNotMatch(css, /max-width: 400px\) and \(min-height: 640px\)/);
+});
+
+test('handheld windows use touch words and a mouse desktop does not', () => {
+  const mouse = { coarse: false, hoverNone: false, anyCoarse: false, ua: 'Mozilla/5.0 (X11; Linux x86_64)', maxTouchPoints: 0 };
+  assert.equal(usesTouchCopy({ ...mouse, shortSide: 1080, longSide: 1920 }), false);
+  assert.equal(usesTouchControls({ ...mouse, shortSide: 1080, longSide: 1920 }), false);
+  assert.equal(usesTouchCopy({ ...mouse, shortSide: 800, longSide: 1280 }), false);
+  assert.equal(usesTouchControls({ ...mouse, shortSide: 390, longSide: 844, maxTouchPoints: 1 }), true);
+  assert.equal(usesTouchControls({ ...mouse, shortSide: 1080, longSide: 1920, maxTouchPoints: 10 }), false);
+  const sizes = [[360, 740], [412, 915], [915, 412], [820, 1180], [1180, 820]];
+  for (const [width, height] of sizes) {
+    const facts = { ...mouse, shortSide: Math.min(width, height), longSide: Math.max(width, height) };
+    assert.equal(usesTouchCopy(facts), true, `${width}x${height}`);
+    assert.equal(usesTouchControls(facts), false, `${width}x${height} keeps the mouse`);
+  }
+  assert.equal(usesTouchCopy({ ...mouse, coarse: true, shortSide: 1400, longSide: 1900 }), true);
+  assert.equal(usesTouchControls({ ...mouse, hoverNone: true, shortSide: 1400, longSide: 1900 }), true);
 });
 
 test('the touch stick points forward and to the side, and a small nudge does nothing', () => {

@@ -481,8 +481,8 @@ body {
 
 .studio-mark img {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
 }
 
 .studio-mark:hover,
@@ -499,7 +499,9 @@ body {
   top: 16px;
   left: 16px;
   z-index: 2;
-  padding: 4px 12px 4px 4px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px 0 0;
   background: rgba(12, 14, 20, 0.88);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
@@ -667,6 +669,8 @@ body {
   .keys-only { display: none; }
   .touch-only { display: list-item; }
 }
+html.touch-play .keys-only { display: none; }
+html.touch-play .touch-only { display: list-item; }
 
 kbd {
   display: inline-block;
@@ -1022,11 +1026,18 @@ kbd {
 #overlay-panel { touch-action: pan-y; }
 .play-extras .menu-quiet {
   grid-column: 1 / -1;
+  box-sizing: border-box;
   min-width: 44px;
+  width: auto;
   min-height: 44px;
-  padding: 10px 16px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
   font-size: 15px;
   font-weight: 650;
+  line-height: 1.2;
   background: transparent;
   border-style: dashed;
 }
@@ -1134,23 +1145,78 @@ kbd {
   #play-tips-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .play-tip { font-size: 13px; min-height: 0; padding: 6px 8px; }
 }
+/* Portrait: one short strip beside the palette. The path hint stays above the crosshair and the buttons. */
 @media (max-width: 900px) and (min-height: 560px) {
-  #play-tips { top: 76px; left: 8px; right: 8px; width: auto; }
-  #hud:has(#paint-dock.is-open) #play-tips { top: 140px; }
+  #play-tips {
+    top: 8px;
+    left: 96px;
+    right: 68px;
+    width: auto;
+    margin: 0;
+    max-height: 52px;
+    align-items: center;
+  }
+  #hud:has(#paint-dock.is-open) #play-tips { top: 8px; }
   #play-tips.is-folded,
-  #hud:has(#paint-dock.is-open) #play-tips.is-folded { top: 8px; left: auto; right: 64px; width: auto; }
-  #hint { bottom: 312px; max-width: min(62vw, 240px); }
+  #hud:has(#paint-dock.is-open) #play-tips.is-folded {
+    top: 8px;
+    left: auto;
+    right: 64px;
+    width: auto;
+    max-height: none;
+  }
+  #play-tips-list {
+    display: flex;
+    flex-wrap: nowrap;
+    grid-template-columns: none;
+    min-width: 0;
+    overflow-x: auto;
+    gap: 6px;
+  }
+  .play-tip {
+    flex: 0 0 auto;
+    min-height: 44px;
+    height: 44px;
+    padding: 4px 8px;
+    white-space: nowrap;
+  }
+  .play-tip-icon { font-size: 20px; }
+  #play-tips-fold,
+  #play-tips-close {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+  #hint {
+    top: 132px;
+    bottom: auto;
+    max-width: min(68vw, 280px);
+  }
+  #hud:not(:has(#play-help:not(:empty))) #hint { top: 96px; }
+}
+/* Shortcuts sit under the 64px palette instead of beside it. */
+@media (max-width: 900px), (pointer: coarse) {
+  #play-help, #flight-status {
+    left: 12px;
+    top: 80px;
+    max-width: min(280px, calc(100vw - 24px));
+  }
+  #flight-status { top: 102px; }
+}
+/* Landscape tablet: clear the top-left palette, then the tip row. */
+@media (min-width: 900px) and (max-height: 900px) {
+  #play-tips { top: 12px; left: 96px; right: 64px; width: auto; margin: 0; }
+  #play-help, #flight-status { top: 84px; left: 16px; max-width: min(420px, 46vw); }
+  #flight-status { top: 106px; }
+  #hint { top: 22%; bottom: auto; max-width: min(40vw, 320px); }
 }
 @media (max-height: 520px) {
-  #play-tips { top: 60px; left: 64px; right: 68px; width: auto; }
+  #play-tips { top: 8px; left: 80px; right: 60px; width: auto; margin: 0; }
   #play-tips-list { display: flex; flex: 1; min-width: 0; grid-template-columns: none; overflow-x: auto; }
-  .play-tip { flex: 1 1 0; min-width: 0; min-height: 44px; align-items: center; justify-content: center; white-space: nowrap; }
-  .play-tip-text { display: none; }
-  #hint { top: 46%; bottom: auto; max-width: min(40vw, 240px); }
-}
-@media (max-width: 900px), (pointer: coarse) {
-  #play-help, #flight-status { left: 84px; top: 14px; max-width: min(280px, calc(100vw - 160px)); }
-  #flight-status { top: 36px; }
+  .play-tip { flex: 0 0 auto; min-width: 0; min-height: 44px; height: 44px; align-items: center; justify-content: center; white-space: nowrap; }
+  #hint { top: 64px; bottom: auto; left: 58%; max-width: min(36vw, 240px); }
+  #play-help, #flight-status { top: 64px; left: 12px; max-width: 22vw; }
+  #flight-status { top: 86px; }
 }
 @media (pointer: coarse) {
   #hotbar .slot { width: 40px; height: 42px; }
